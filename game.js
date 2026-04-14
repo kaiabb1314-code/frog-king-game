@@ -268,6 +268,8 @@
   const dictionaryAudioCache = new Map();
   const resolvedAudioByText = new Map();
   const preloadedAudioObjects = new Map();
+  let lastAutoAudioText = "";
+  let lastAutoAudioAt = 0;
 
   function playAudioUrl(url) {
     return new Promise((resolve, reject) => {
@@ -314,11 +316,13 @@
       urls.push("https://ssl.gstatic.com/dictionary/static/sounds/20200429/" + encodeURIComponent(raw.toLowerCase()) + "--_us_1.mp3");
       urls.push("https://dict.youdao.com/dictvoice?audio=" + encodeURIComponent(raw) + "&type=2");
       urls.push("https://dict.youdao.com/dictvoice?audio=" + encodeURIComponent(raw) + "&type=1");
+      urls.push("https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=" + encodeURIComponent(raw));
       return urls;
     }
     const clean = normalizedPhrase(raw);
     urls.push("https://dict.youdao.com/dictvoice?audio=" + encodeURIComponent(clean || raw) + "&type=2");
     urls.push("https://dict.youdao.com/dictvoice?audio=" + encodeURIComponent(clean || raw) + "&type=1");
+    urls.push("https://translate.googleapis.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=" + encodeURIComponent(clean || raw));
     return urls;
   }
 
@@ -351,9 +355,20 @@
   }
 
   async function playEnglishAudioGuaranteed(text) {
-    const ok = await playEnglishAudio(text);
-    if (ok) return true;
-    return speakFallback(text);
+    const raw = (text || "").trim();
+    if (!raw) return false;
+    const now = Date.now();
+    if (lastAutoAudioText === raw && now - lastAutoAudioAt < 1800) {
+      return false;
+    }
+    const ok = await playEnglishAudio(raw);
+    if (ok) {
+      lastAutoAudioText = raw;
+      lastAutoAudioAt = now;
+      return true;
+    }
+    // 禁用 TTS 回退，确保只有人声
+    return false;
   }
 
   async function preloadHumanAudio() {
@@ -1140,6 +1155,7 @@
     if (step.autoSpeak) return step.autoSpeak;
     if (step.kind === "TIP") return "";
     if (step.kind === "P1" || step.kind === "P2") return "";
+    if (step.kind === "S2" || step.kind === "RV4" || step.kind === "A4") return "";
     if (step.kind === "A5") return "";
     const englishFromPrompt = () => {
       const m = String(step.prompt || "").match(/“([^”]+)”/);
@@ -1448,6 +1464,9 @@
     if (withAudio) {
       const text = step.sentence || (step.tokens ? step.tokens.join(" ") : "");
       renderAudioButton(text);
+      setTimeout(() => {
+        playEnglishAudioGuaranteed(text);
+      }, 120);
     }
     root.appendChild(el("div", "prompt prompt--sub", withAudio ? "听音后把句子块排到中间横线上" : step.sentenceZh));
     const answerKey = createAnswerKey();
@@ -1511,71 +1530,21 @@
     renderHeader(step);
     const target = step.target || "";
     const answerKey = createAnswerKey();
-    root.appendChild(el("div", "prompt", step.hintZh || "点击录音并跟读"));
+    root.appendChild(el("div", "prompt", step.hintZh || "请跟读示范发音"));
     root.appendChild(el("div", "word-hero", withZhInLevel11(target)));
     renderAudioButton(target);
     const wrap = el("div", "dialogue-box dialogue-box--yellow", "");
-    const status = el("div", "prompt prompt--sub", "先听示范发音，再点击录音按钮开始跟读");
-    const transcript = el("div", "prompt prompt--sub", "");
-    transcript.style.minHeight = "24px";
-    transcript.style.marginTop = "8px";
-    const recordBtn = el("button", "btn-primary", "🎤 点击录音");
-    recordBtn.type = "button";
-    recordBtn.style.marginTop = "8px";
-    const autoSpeakMs = estimateSpeechDurationMs(target);
-    const durationMs = Math.max(700, Math.round(autoSpeakMs / 2));
-    const isSentenceStep = step.kind === "P2" || /\s/.test(normalizeSpeechText(target));
-
-    function finalize(spokenText, heard) {
-      const spoken = normalizeSpeechText(spokenText);
-      if (isSentenceStep) {
-        // 句子口语：只要检测到有声音（或识别到文本）即通过
-        if (spoken || heard) {
-          transcript.textContent = "已检测到你的跟读：通过";
-          stepStatus.markCorrect();
-        } else {
-          transcript.textContent = "没有检测到有效语音，请再试一次";
-          stepStatus.markWrong();
-        }
-        updateHud();
-        return;
-      }
-      const score = calcSpeechSimilarity(target, spoken);
-      if (!spoken && heard) {
-        transcript.textContent = "检测到你已发声，识别文本较弱：通过";
-        stepStatus.markCorrect();
-      } else {
-        transcript.textContent = "你说的是: " + (spokenText || "(未识别到)") + " ｜ 相似度: " + Math.round(score * 100) + "%";
-        if (score >= 0.1) stepStatus.markCorrect();
-        else stepStatus.markWrong();
-      }
-      updateHud();
-    }
-
-    let recording = false;
-    async function startManualRecording() {
-      if (recording || stepStatus.isCorrect || stepStatus.graded) return;
-      recording = true;
-      recordBtn.disabled = true;
-      status.textContent = "录音中...（约 " + (durationMs / 1000).toFixed(1) + " 秒，= 示范发音约一半）";
-      const heardResult = await listenVoiceWithFallback(durationMs);
-      finalize(heardResult.transcript, heardResult.heard);
-      recording = false;
-      recordBtn.disabled = false;
-    }
-
-    recordBtn.addEventListener("click", startManualRecording);
+    const status = el("div", "prompt prompt--sub", "示范发音会自动播放，请跟读后直接点击【继续闯关】");
     setTimeout(() => {
       playEnglishAudioGuaranteed(target);
     }, 120);
+    stepStatus.isCorrect = true;
 
     stepStatus.setReveal(() => {
       revealKey(answerKey, "<strong>参考读音：</strong> " + target);
     });
 
     wrap.appendChild(status);
-    wrap.appendChild(recordBtn);
-    wrap.appendChild(transcript);
     root.appendChild(wrap);
     root.appendChild(answerKey);
   }
