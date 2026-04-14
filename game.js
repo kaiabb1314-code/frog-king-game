@@ -226,6 +226,11 @@
     return id;
   }
 
+  function savePlayerId(id) {
+    if (!id) return;
+    localStorage.setItem(STORAGE_KEYS.playerId, id);
+  }
+
   function savePlayerName(name) {
     localStorage.setItem(STORAGE_KEYS.playerName, name);
   }
@@ -901,6 +906,7 @@
   const frogMascot = document.getElementById("frog-mascot");
   const frogActor = document.getElementById("frog-actor");
   const frogOutfit = document.getElementById("frog-outfit");
+  const frogNameTag = document.getElementById("frog-name-tag");
   const praisePop = document.getElementById("frog-bubble");
   const eyeFlash = document.getElementById("eye-flash");
   const sparkleBurst = document.getElementById("sparkle-burst");
@@ -970,6 +976,34 @@
     return list
       .slice()
       .sort((a, b) => (b.stars - a.stars) || (b.crowns - a.crowns) || (a.updatedAt - b.updatedAt) || a.name.localeCompare(b.name));
+  }
+
+  function findLeaderboardRowByName(name) {
+    const key = String(name || "").trim().toLowerCase();
+    if (!key) return null;
+    return leaderboard.find((x) => String(x.name || "").trim().toLowerCase() === key) || null;
+  }
+
+  async function bindIdentityByName(name) {
+    const normalized = String(name || "").trim();
+    if (!normalized) return { ok: false, reason: "empty" };
+    if (CLOUD_ENABLED) {
+      await refreshLeaderboardFromCloud();
+    }
+    const sameName = findLeaderboardRowByName(normalized);
+    if (sameName) {
+      if (sameName.playerId && sameName.playerId !== playerId) {
+        return { ok: false, reason: "taken" };
+      }
+      if (sameName.playerId) {
+        playerId = sameName.playerId;
+        savePlayerId(playerId);
+      }
+      state.stars = Math.max(state.stars, sameName.stars || 0);
+      state.crowns = Math.max(state.crowns, sameName.crowns || 0);
+      saveState(state);
+    }
+    return { ok: true };
   }
 
   async function fetchCloudLeaderboard() {
@@ -1188,6 +1222,7 @@
     crownCountEl.textContent = String(state.crowns);
     const outfitCount = Math.max(0, state.currentLevel - 1);
     frogOutfit.textContent = outfitCount > 0 ? OUTFITS[(outfitCount - 1) % OUTFITS.length] : "";
+    if (frogNameTag) frogNameTag.textContent = playerName || "小青蛙";
     upsertCurrentPlayerScore();
     renderRoute();
   }
@@ -2265,8 +2300,15 @@
     if (leaderboardModal) leaderboardModal.classList.add("modal-overlay--hidden");
   }
 
-  function ensurePlayerNameBeforeStart() {
+  async function ensurePlayerNameBeforeStart() {
     if (playerName) {
+      const bound = await bindIdentityByName(playerName);
+      if (!bound.ok) {
+        playerName = "";
+        savePlayerName("");
+        openNameModal();
+        return;
+      }
       renderCurrentStep();
       return;
     }
@@ -2317,14 +2359,25 @@
   if (btnCloseLeaderboard) btnCloseLeaderboard.addEventListener("click", closeLeaderboardModal);
   if (btnSaveCloud) btnSaveCloud.addEventListener("click", saveCloudConfig);
 
-  function commitPlayerName() {
+  async function commitPlayerName() {
     if (!nameInput) return;
     const name = (nameInput.value || "").trim().slice(0, 20);
     if (!name) {
       nameInput.focus();
       return;
     }
+    const previousName = playerName;
     playerName = name;
+    const bound = await bindIdentityByName(playerName);
+    if (!bound.ok) {
+      playerName = previousName || "";
+      if (bound.reason === "taken") {
+        alert("这个名字已经被使用啦，请换一个新名字。");
+      }
+      nameInput.focus();
+      nameInput.select();
+      return;
+    }
     savePlayerName(playerName);
     upsertCurrentPlayerScore();
     closeNameModal();

@@ -321,6 +321,19 @@ body {
   justify-content: center;
 }
 
+.frog-name-tag {
+  margin-bottom: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff6cf;
+  border: 2px solid #f0cf6a;
+  color: #5b4b1d;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+}
+
 .frog-actor {
   position: relative;
   display: inline-block;
