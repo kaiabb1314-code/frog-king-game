@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>青蛙大王 · Unit 4</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-floaters" aria-hidden="true">
+    <span>🐸</span><span>🌈</span><span>🫧</span><span>⭐</span><span>🐸</span><span>🍀</span>
+  </div>
+  <div id="app">
+    <h1 class="game-title">青蛙大王变身记</h1>
+    <div class="game-layout">
+      <aside class="route-panel">
+        <div class="route-panel__title">石头小路</div>
+        <div class="stone-route" id="stone-route"></div>
+      </aside>
+      <div class="game-main">
+        <header class="top-bar" aria-label="进度与奖励">
+          <div class="frog-track-wrap" aria-hidden="true">
+            <div class="frog-track">
+              <div class="frog-track__fill" id="frog-track-fill"></div>
+              <div class="frog-track__frog" id="frog-mascot">🐸</div>
+            </div>
+            <div class="frog-track__label">
+              <span id="step-label">环节 1 / 12</span>
+              <span class="unit-tag">Unit 4</span>
+            </div>
+          </div>
+          <div class="top-bar__reward-row">
+            <div class="top-bar__rewards">
+              <button type="button" class="reward-pill" id="btn-stars" title="环节星星">
+                <span class="reward-pill__icon" aria-hidden="true">⭐</span>
+                <span id="star-count" class="reward-pill__num">0</span>
+              </button>
+              <button type="button" class="reward-pill reward-pill--crown" id="btn-crowns" title="关卡皇冠">
+                <span class="reward-pill__icon" aria-hidden="true">👑</span>
+                <span id="crown-count" class="reward-pill__num">0</span>
+              </button>
+            </div>
+            <div class="top-bar__spacer top-bar__actions">
+              <button type="button" class="mini-link" id="btn-level-picker">关卡</button>
+              <button type="button" class="mini-link" id="btn-leaderboard">排行榜</button>
+            </div>
+          </div>
+        </header>
+
+        <section class="character-area" aria-live="polite">
+          <div class="frog-stage">
+            <div id="frog-actor" class="frog-actor" data-mood="idle" title="青蛙大王">🐸<span class="frog-crown" aria-hidden="true">👑</span><span id="frog-outfit" class="frog-outfit" aria-hidden="true">🎀</span></div>
+            <div id="frog-bubble" class="praise-pop praise-pop--hidden" role="status">真棒</div>
+          </div>
+          <div id="eye-flash" class="eye-flash" aria-hidden="true"></div>
+          <div id="sparkle-burst" class="sparkle-burst" aria-hidden="true"></div>
+        </section>
+
+        <main class="challenge-zone" id="challenge-root">
+          <div class="screen screen--loading" id="screen-loading">
+            <p class="loading-text">加载中…</p>
+          </div>
+        </main>
+
+        <footer class="action-bar action-bar--double">
+          <button type="button" class="btn-ghost" id="btn-retry-level">重闯本关</button>
+          <button type="button" class="btn-primary" id="btn-continue" disabled>继续闯关</button>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay modal-overlay--hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+      <h2 id="modal-title" class="modal__title">选择关卡</h2>
+      <p class="modal__hint">Unit 4 · 共 11 关 · 每关 2 个新单词 + 2 个句子 · 16+ 环节</p>
+      <div class="level-grid" id="level-grid"></div>
+      <button type="button" class="btn-secondary" id="btn-close-modal">关闭</button>
+    </div>
+  </div>
+  <div id="level-celebration" class="level-celebration level-celebration--hidden" aria-live="polite">
+    <div class="level-celebration__fireworks">🎆 ✨ 🎇 ✨ 🎆</div>
+    <div id="level-celebration-text" class="level-celebration__text">恭喜进入下一关！</div>
+  </div>
+
+  <div id="name-modal-overlay" class="modal-overlay modal-overlay--hidden" role="dialog" aria-modal="true" aria-labelledby="name-modal-title">
+    <div class="modal">
+      <h2 id="name-modal-title" class="modal__title">欢迎来到青蛙大王变身记</h2>
+      <p class="modal__hint">你原本是一只默默无闻的小青蛙，偶然捡到一本魔法英语通关秘籍。每闯过一关，就会解锁新的装扮，离青蛙大王更近一步！现在先给你的小青蛙取个名字吧：请在名字前加上班级和学号，例如 10 班 1 号取名 good，可写成 1001good。右上角排行榜可以看到同伴蛙的皇冠数，通关越多，皇冠越多。</p>
+      <div class="name-evolution" aria-hidden="true">
+        <span class="name-evolution__frog">🐸</span>
+        <span class="name-evolution__arrow">✨ ➜ 📘 ➜ ✨</span>
+        <span class="name-evolution__king">👑🐸</span>
+      </div>
+      <input id="name-input" class="name-input" type="text" maxlength="20" placeholder="请输入你的名字" autocomplete="off" />
+      <button type="button" class="btn-primary" id="btn-save-name">开始闯关</button>
+    </div>
+  </div>
+
+  <div id="leaderboard-modal-overlay" class="modal-overlay modal-overlay--hidden" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title">
+    <div class="modal">
+      <h2 id="leaderboard-title" class="modal__title">排行榜</h2>
+      <p class="modal__hint">按 ⭐ 星星总数排序，星星越多排名越高。</p>
+      <div class="cloud-config-panel" id="cloud-config-panel">
+        <div class="modal__hint" style="margin-bottom:8px;">开启全网同榜：粘贴 Supabase 配置（只需一次）</div>
+        <input id="cloud-url-input" class="name-input" type="text" placeholder="Supabase URL（https://xxxx.supabase.co）" autocomplete="off" />
+        <input id="cloud-key-input" class="name-input" type="text" placeholder="Supabase anon key" autocomplete="off" />
+        <button type="button" class="btn-secondary" id="btn-save-cloud">保存云配置</button>
+        <div id="cloud-status" class="modal__hint" style="margin-top:8px;"></div>
+      </div>
+      <div class="leaderboard-list" id="leaderboard-list"></div>
+      <button type="button" class="btn-secondary" id="btn-close-leaderboard">关闭</button>
+    </div>
+  </div>
+
+  <script>
+    // 可选：填写 Supabase 后开启“全网同榜”
+    // 1) supabaseUrl 形如: https://xxxx.supabase.co
+    // 2) supabaseAnonKey 为项目 anon key
+    window.FROG_KING_CLOUD = window.FROG_KING_CLOUD || {
+      supabaseUrl: "https://kkcdpaiwegczvxnxfyvu.supabase.co",
+      supabaseAnonKey: "sb_publishable_xkJjFbU5eg5qn4aYEqOvIw_eJ5hrX0F",
+    };
+  </script>
+  <script src="game.js"></script>
+</body>
+</html>
