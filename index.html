@@ -234,10 +234,30 @@
   </div>
 
   <div id="leaderboard-modal-overlay" class="modal-overlay modal-overlay--hidden" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title">
-    <div class="modal">
-      <h2 id="leaderboard-title" class="modal__title">排行榜</h2>
-      <p class="modal__hint">按 ⭐ 星星总数排序，星星越多排名越高。</p>
-      <div class="leaderboard-list" id="leaderboard-list"></div>
+    <div class="modal modal--leaderboard">
+      <div class="modal__leaderboard-header">
+        <h2 id="leaderboard-title" class="modal__title modal__title--in-header">排行榜</h2>
+        <button type="button" class="leaderboard-modal-close" id="btn-close-leaderboard" aria-label="关闭">❌</button>
+      </div>
+      <div class="leaderboard-layout">
+        <div class="leaderboard-layout__main">
+          <p id="leaderboard-stars-hint" class="modal__hint">按 ⭐ 星星总数排序，星星越多排名越高。</p>
+          <div class="leaderboard-list" id="leaderboard-list"></div>
+        </div>
+        <aside class="leaderboard-notice" aria-label="公告栏">
+          <div class="leaderboard-notice__title">📢 公告</div>
+          <div class="leaderboard-notice__body">
+            <p class="leaderboard-notice__headline">【星星规则】</p>
+            <ul class="leaderboard-notice__list">
+              <li>做对 <strong>一道题</strong>得 <strong>1</strong> 颗 ⭐。</li>
+              <li>每一关从 <strong>环节 1</strong> 重新开始，记作该关多玩 <strong>一次</strong>。</li>
+              <li>同一关前 <strong>3 次</strong>闯关答对可得星；第 <strong>4 次</strong>起再玩该关，答对也 <strong>不得星</strong>。</li>
+              <li>同一关已玩满 3 次后，石头小路上该关会变成 <strong>金色</strong>。</li>
+              <li>全游星星 <strong>理论上限为 <span id="leaderboard-notice-max-stars">—</span></strong>（全关 <span id="leaderboard-notice-step-count">—</span> 环节 × 3 次）。排行榜显示与上传均以该上限封顶。</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
       <div id="teacher-panel" class="teacher-panel teacher-panel--hidden">
         <div class="teacher-panel__title">🔐 教师密码查询</div>
         <div class="teacher-panel__hint">可按用户名搜索学生密码（明文）</div>
@@ -247,7 +267,6 @@
         </div>
         <div id="teacher-list" class="teacher-list"></div>
       </div>
-      <button type="button" class="btn-secondary" id="btn-close-leaderboard">关闭</button>
     </div>
   </div>
 

@@ -215,7 +215,7 @@
 
   function loadState() {
     return {
-      stars: loadNumber(STORAGE_KEYS.stars, 0),
+      stars: clampStarsToCap(loadNumber(STORAGE_KEYS.stars, 0)),
       crowns: loadNumber(STORAGE_KEYS.crowns, 0),
       unlockedLevel: Math.min(MAX_LEVEL, Math.max(1, loadNumber(STORAGE_KEYS.unlocked, 1))),
       currentLevel: Math.min(MAX_LEVEL, Math.max(1, loadNumber(STORAGE_KEYS.lastLevel, 1))),
@@ -224,6 +224,7 @@
   }
 
   function saveState(state) {
+    state.stars = clampStarsToCap(state.stars);
     localStorage.setItem(STORAGE_KEYS.stars, String(state.stars));
     localStorage.setItem(STORAGE_KEYS.crowns, String(state.crowns));
     localStorage.setItem(STORAGE_KEYS.unlocked, String(state.unlockedLevel));
@@ -258,23 +259,39 @@
       const raw = localStorage.getItem(STORAGE_KEYS.leaderboard);
       const arr = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(arr)) return [];
-      return arr
+      let dirty = false;
+      const mapped = arr
         .filter((x) => x && typeof x.name === "string")
-        .map((x) => ({
-          playerId: String(x.playerId || ""),
-          name: String(x.name).trim(),
-          stars: Math.max(0, Number(x.stars) || 0),
-          crowns: Math.max(0, Number(x.crowns) || 0),
-          updatedAt: Number(x.updatedAt) || Date.now(),
-        }))
+        .map((x) => {
+          const starsRaw = Math.max(0, Number(x.stars) || 0);
+          const stars = clampStarsToCap(starsRaw);
+          if (stars !== starsRaw) dirty = true;
+          return {
+            playerId: String(x.playerId || ""),
+            name: String(x.name).trim(),
+            stars,
+            crowns: Math.max(0, Number(x.crowns) || 0),
+            updatedAt: Number(x.updatedAt) || Date.now(),
+          };
+        })
         .filter((x) => x.name);
+      const list = mapped.filter((x) => x.stars >= LEADERBOARD_MIN_STARS);
+      if (list.length !== mapped.length) dirty = true;
+      if (dirty) {
+        localStorage.setItem(STORAGE_KEYS.leaderboard, JSON.stringify(list));
+      }
+      return list;
     } catch (_) {
       return [];
     }
   }
 
   function saveLeaderboard(list) {
-    localStorage.setItem(STORAGE_KEYS.leaderboard, JSON.stringify(list));
+    const capped = list
+      .map((row) => Object.assign({}, row, { stars: clampStarsToCap(row.stars) }))
+      .filter((row) => row.stars >= LEADERBOARD_MIN_STARS);
+    localStorage.setItem(STORAGE_KEYS.leaderboard, JSON.stringify(capped));
+    return capped;
   }
 
   function cloudHeaders(extra) {
@@ -1590,6 +1607,17 @@
 
   const LEVELS = buildLevels();
 
+  const TOTAL_STEP_COUNT = LEVELS.reduce((sum, L) => sum + L.steps.length, 0);
+  /** 每关最多 3 次可得星，每次最多该关环节数颗星 → 全游理论星星上限 */
+  const MAX_STARS_POSSIBLE = TOTAL_STEP_COUNT * 3;
+
+  function clampStarsToCap(n) {
+    return Math.min(MAX_STARS_POSSIBLE, Math.max(0, Number(n) || 0));
+  }
+
+  /** 排行榜仅保留星星 ≥ 该值的玩家，低于则清除不展示 */
+  const LEADERBOARD_MIN_STARS = 10;
+
   (function validateLevelsBuilt() {
     if (LEVELS.length !== MAX_LEVEL) {
       console.error("[frog-king] 关卡数量异常：", LEVELS.length, "预期", MAX_LEVEL);
@@ -1620,6 +1648,7 @@
   const btnEnterNoPin = document.getElementById("btn-enter-no-pin");
   const leaderboardModal = document.getElementById("leaderboard-modal-overlay");
   const leaderboardTitleEl = document.getElementById("leaderboard-title");
+  const leaderboardStarsHintEl = document.getElementById("leaderboard-stars-hint");
   const leaderboardList = document.getElementById("leaderboard-list");
   const teacherPanel = document.getElementById("teacher-panel");
   const teacherSearchInput = document.getElementById("teacher-search");
@@ -1666,6 +1695,91 @@
   let playerId = loadPlayerId();
   let playerName = loadPlayerName();
   let leaderboard = loadLeaderboard();
+
+  const LEVEL_SEEN0_SESSION_KEY = "frogKing_seen0_levels";
+  let levelPlayCountsCache = null;
+  let levelPlayCountsCachePid = null;
+
+  function levelPlaysStorageKeyForPlayer(pid) {
+    return "frogKing_u4_levelPlays_" + String(pid || "guest");
+  }
+
+  function invalidateLevelPlayCountsCache() {
+    levelPlayCountsCache = null;
+    levelPlayCountsCachePid = null;
+  }
+
+  function loadLevelPlayCountsRaw(pid) {
+    try {
+      const raw = localStorage.getItem(levelPlaysStorageKeyForPlayer(pid));
+      const arr = raw ? JSON.parse(raw) : null;
+      if (!Array.isArray(arr) || arr.length !== MAX_LEVEL) {
+        return Array(MAX_LEVEL).fill(0);
+      }
+      return arr.map((n) => Math.max(0, Math.min(999, Number(n) || 0)));
+    } catch (_) {
+      return Array(MAX_LEVEL).fill(0);
+    }
+  }
+
+  function getLevelPlayCountsArr() {
+    const pid = playerId || loadPlayerId() || "guest";
+    if (levelPlayCountsCache && levelPlayCountsCachePid === pid) return levelPlayCountsCache;
+    levelPlayCountsCache = loadLevelPlayCountsRaw(pid);
+    levelPlayCountsCachePid = pid;
+    return levelPlayCountsCache;
+  }
+
+  function bumpLevelPlayCount(levelId1Based) {
+    const pid = playerId || loadPlayerId() || "guest";
+    const arr = getLevelPlayCountsArr().slice();
+    const i = levelId1Based - 1;
+    if (i < 0 || i >= MAX_LEVEL) return;
+    arr[i] = Math.min(999, (arr[i] || 0) + 1);
+    levelPlayCountsCache = arr;
+    localStorage.setItem(levelPlaysStorageKeyForPlayer(pid), JSON.stringify(arr));
+  }
+
+  function getLevelPlayCount(levelId1Based) {
+    return getLevelPlayCountsArr()[levelId1Based - 1] || 0;
+  }
+
+  /** 本关「第几次从环节 1 开始」≤3 时，答对可得星；第 4 次起不得星 */
+  function canEarnStarsThisLevelStep() {
+    return getLevelPlayCount(state.currentLevel) <= 3;
+  }
+
+  function parseSeen0Set() {
+    try {
+      const raw = sessionStorage.getItem(LEVEL_SEEN0_SESSION_KEY);
+      const a = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(a) ? a.map(Number).filter((n) => n >= 1 && n <= MAX_LEVEL) : []);
+    } catch (_) {
+      return new Set();
+    }
+  }
+
+  function writeSeen0Set(set) {
+    sessionStorage.setItem(LEVEL_SEEN0_SESSION_KEY, JSON.stringify([...set].sort((x, y) => x - y)));
+  }
+
+  /** 每次进入某关「环节 1」（含重选该关、重闯本关）计为一次闯关；同页刷新同关环节 1 不重复计次 */
+  function syncLevelPlayBumpForStep0Session() {
+    const L = state.currentLevel;
+    const s = state.currentStepIndex;
+    const seen = parseSeen0Set();
+    if (s !== 0) {
+      if (seen.has(L)) {
+        seen.delete(L);
+        writeSeen0Set(seen);
+      }
+      return;
+    }
+    if (seen.has(L)) return;
+    seen.add(L);
+    writeSeen0Set(seen);
+    bumpLevelPlayCount(L);
+  }
   let cloudSyncTimer = null;
   let cloudStateSyncTimer = null;
   let cloudRefreshInFlight = false;
@@ -1745,7 +1859,11 @@
       const b = el("button", "stone-node", "第" + i + "关");
       const sideCls = i % 2 === 0 ? "stone-node--right" : "stone-node--left";
       b.classList.add(sideCls);
-      if (i < state.currentLevel) b.classList.add("stone-node--done");
+      if (getLevelPlayCount(i) >= 3) {
+        b.classList.add("stone-node--gold");
+      } else if (i < state.currentLevel) {
+        b.classList.add("stone-node--done");
+      }
       if (i === state.currentLevel) b.classList.add("stone-node--current");
       b.type = "button";
       b.addEventListener("click", () => {
@@ -1768,6 +1886,18 @@
     return list
       .slice()
       .sort((a, b) => (b.stars - a.stars) || (b.crowns - a.crowns) || (a.updatedAt - b.updatedAt) || a.name.localeCompare(b.name));
+  }
+
+  /** 竞赛排名：⭐ 相同则名次相同；下一名为「前面人数 + 1」（如 13 人并列第 1，下一名为 #14） */
+  function leaderboardCompetitionRankByStars(sorted, idx) {
+    if (idx <= 0) return 1;
+    let rank = 1;
+    for (let i = 1; i <= idx; i++) {
+      if ((sorted[i].stars || 0) !== (sorted[i - 1].stars || 0)) {
+        rank = i + 1;
+      }
+    }
+    return rank;
   }
 
   function findLeaderboardRowByName(name) {
@@ -2019,7 +2149,7 @@
     if (!res.ok) return res;
     const cloudState = normalizeProgressState(res.row);
     const local = normalizeProgressState(state);
-    state.stars = Math.max(local.stars, cloudState.stars);
+    state.stars = clampStarsToCap(Math.max(local.stars, cloudState.stars));
     state.crowns = Math.max(local.crowns, cloudState.crowns);
     state.unlockedLevel = Math.max(local.unlockedLevel, cloudState.unlockedLevel);
     if (cloudState.currentLevel > local.currentLevel) {
@@ -2045,7 +2175,7 @@
     const byName = findLeaderboardRowByName(playerName);
     const row = byId || byName;
     if (!row) return;
-    state.stars = Math.max(state.stars, row.stars || 0);
+    state.stars = clampStarsToCap(Math.max(state.stars, row.stars || 0));
     state.crowns = Math.max(state.crowns, row.crowns || 0);
     saveState(state);
   }
@@ -2062,8 +2192,9 @@
         // 同名即视为同一账号：自动切换到该账号 playerId，避免同设备重登被拦截。
         playerId = sameName.playerId;
         savePlayerId(playerId);
+        invalidateLevelPlayCountsCache();
       }
-      state.stars = Math.max(state.stars, sameName.stars || 0);
+      state.stars = clampStarsToCap(Math.max(state.stars, sameName.stars || 0));
       state.crowns = Math.max(state.crowns, sameName.crowns || 0);
       saveState(state);
     }
@@ -2083,11 +2214,11 @@
       .map((x) => ({
         playerId: String(x.player_id || ""),
         name: String(x.name || "").trim(),
-        stars: Math.max(0, Number(x.stars) || 0),
+        stars: clampStarsToCap(Number(x.stars) || 0),
         crowns: Math.max(0, Number(x.crowns) || 0),
         updatedAt: Number(new Date(x.updated_at || Date.now())) || Date.now(),
       }))
-      .filter((x) => x.playerId && x.name);
+      .filter((x) => x.playerId && x.name && x.stars >= LEADERBOARD_MIN_STARS);
   }
 
   async function upsertCloudScore(row) {
@@ -2097,7 +2228,7 @@
       {
         player_id: row.playerId,
         name: row.name,
-        stars: row.stars,
+        stars: clampStarsToCap(row.stars),
         crowns: row.crowns,
         updated_at: new Date(row.updatedAt || Date.now()).toISOString(),
       },
@@ -2127,8 +2258,7 @@
     try {
       const cloudList = await fetchCloudLeaderboard();
       if (Array.isArray(cloudList)) {
-        leaderboard = sortLeaderboard(cloudList);
-        saveLeaderboard(leaderboard);
+        leaderboard = saveLeaderboard(sortLeaderboard(cloudList));
       }
       return true;
     } catch (_) {
@@ -2144,15 +2274,28 @@
     const now = Date.now();
     const next = leaderboard.slice();
     const idx = next.findIndex((x) => x.playerId === playerId);
-    const row = { playerId, name: playerName, stars: state.stars, crowns: state.crowns, updatedAt: now };
+    const row = {
+      playerId,
+      name: playerName,
+      stars: clampStarsToCap(state.stars),
+      crowns: state.crowns,
+      updatedAt: now,
+    };
     if (idx >= 0) next[idx] = row;
     else next.push(row);
-    leaderboard = sortLeaderboard(next);
-    saveLeaderboard(leaderboard);
+    leaderboard = saveLeaderboard(sortLeaderboard(next));
     scheduleCloudSync(row);
   }
 
   function renderLeaderboard() {
+    const capNotice = document.getElementById("leaderboard-notice-max-stars");
+    const stepNotice = document.getElementById("leaderboard-notice-step-count");
+    if (capNotice) capNotice.textContent = String(MAX_STARS_POSSIBLE);
+    if (stepNotice) stepNotice.textContent = String(TOTAL_STEP_COUNT);
+    if (leaderboardStarsHintEl) {
+      leaderboardStarsHintEl.textContent =
+        "按 ⭐ 星星总数排序（单账号封顶 " + MAX_STARS_POSSIBLE + "）。详细规则见右侧公告。";
+    }
     if (!leaderboardList) return;
     leaderboardList.innerHTML = "";
     const sorted = sortLeaderboard(leaderboard);
@@ -2167,7 +2310,7 @@
     sorted.slice(0, 300).forEach((row, idx) => {
       const item = el("div", "leaderboard-row", "");
       const rank = el("span", "leaderboard-rank", "");
-      rank.textContent = "#" + (idx + 1);
+      rank.textContent = "#" + leaderboardCompetitionRankByStars(sorted, idx);
       const name = el("span", "leaderboard-name", "");
       name.textContent = row.name;
       const score = el("span", "leaderboard-score", "");
@@ -4055,6 +4198,7 @@
       levelStartCelebrationShown = null;
       wrongAttemptsOnCurrentStep = 0;
     }
+    syncLevelPlayBumpForStep0Session();
     root.classList.toggle("challenge-zone--yellow", state.currentLevel >= 7);
     renderStep(step);
     maybeAutoSpeakLevel12Question(step);
@@ -4071,7 +4215,9 @@
       autoAdvancing = false;
     }
     const step = currentStep();
-    state.stars += 1;
+    if (canEarnStarsThisLevelStep()) {
+      state.stars += 1;
+    }
     const total = currentLevelObj().steps.length;
     if (state.currentStepIndex < total - 1) {
       maybeShowEpisodeCelebration(step);
@@ -4233,6 +4379,7 @@
     savePlayerName("");
     localStorage.removeItem(STORAGE_KEYS.playerId);
     playerId = loadPlayerId();
+    invalidateLevelPlayCountsCache();
     closeSetPinModal();
     openNameModal();
     updateHud();
@@ -4244,6 +4391,7 @@
       playerId = id;
       savePlayerId(playerId);
     }
+    invalidateLevelPlayCountsCache();
     savePlayerName(playerName);
     await refreshLeaderboardFromCloud();
     const bound = await bindIdentityByName(playerName);
