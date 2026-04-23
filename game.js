@@ -2058,8 +2058,8 @@
   }
 
   /**
-   * 游戏创作者 / 全解锁老师账号：登录后全关卡可点，选关或石头路时可跳任意环节。
-   * 不区分大小写，例如 Iamzhuanglaoshi 与 iamzhuanglaoshi 等效。
+   * 游戏创作者 / 全解锁老师账号：每次生效时直达「当前最新关」第 1 环节（不保留旧存档进度），
+   * 全关卡可点，故事路标可跳环节。不区分大小写，如 Iamzhuanglaoshi / iamzhuanglaoshi。
    */
   const GAME_CREATOR_USERNAMES = new Set(["iamzhuanglaoshi"]);
 
@@ -2119,6 +2119,8 @@
   function applyTeacherFullUnlockIfNeeded() {
     if (!isTeacherFullUnlockUser(playerName)) return;
     state.unlockedLevel = MAX_LEVEL;
+    state.currentLevel = MAX_LEVEL;
+    state.currentStepIndex = 0;
     saveState(state);
     renderRoute();
     updateHud();
