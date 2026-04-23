@@ -17,7 +17,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
-  const MAX_LEVEL = 16;
+  const MAX_LEVEL = 17;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -55,6 +55,7 @@
     13: "蛙长出左脚！",
     14: "蛙长出右脚！",
     15: "我的蛙终于身体完整了！",
+    17: "我的蛙又拿到了一个苹果！",
   };
   const VIDEO_EPISODE_CELEBRATIONS = [
     "记忆蛙 +1！这一集拿下啦！",
@@ -1545,6 +1546,144 @@
     ];
   }
 
+  /** Unit 5 第17关：记短语（6 种题型 × 8 条短语，仿第1关的板块节奏） */
+  const U5_PHRASES = [
+    {
+      en: "don't run in the classroom",
+      zh: "别在教室里跑。",
+      emoji: "❌🏃🏫",
+      orderTokens: ["don't", "run", "in", "the", "classroom"],
+    },
+    { en: "do your best", zh: "尽你所能。", emoji: "💪✨", orderTokens: ["do", "your", "best"] },
+    { en: "take turns to speak", zh: "轮流发言。", emoji: "🔄🎤", orderTokens: ["take", "turns", "to", "speak"] },
+    { en: "say nice words", zh: "说友善的话。", emoji: "👄👍", orderTokens: ["say", "nice", "words"] },
+    { en: "give a helping hand", zh: "伸出援手（帮一把）。", emoji: "🤲🤝", orderTokens: ["give", "a", "helping", "hand"] },
+    { en: "put away your things", zh: "把你的东西收好。", emoji: "🗄️🎒", orderTokens: ["put", "away", "your", "things"] },
+    {
+      en: 'what rules do you like? I like "say nice words"',
+      zh: "你喜欢什么规则？我喜欢「说友善的话」这句。",
+      emoji: "📋❓",
+      orderTokens: ["what", "rules", "do", "you", "like?", "I", "like", "say", "nice", "words"],
+    },
+    { en: "what about you?", zh: "你呢？", emoji: "🫵❓", orderTokens: ["what", "about", "you?"] },
+  ];
+
+  function buildU5Options(correct) {
+    const all = U5_PHRASES.map((p) => p.en);
+    return shuffle([correct, ...shuffle(all.filter((x) => x !== correct)).slice(0, 3)]);
+  }
+
+  function buildU5LetterSubtasks(word) {
+    const w = (word || "").toLowerCase();
+    if (w.length < 3) {
+      return buildMissingLetterTasks({ en: w }).slice(0, 2);
+    }
+    const tasks = buildMissingLetterTasks({ en: w });
+    return shuffle(tasks)
+      .slice(0, 3)
+      .map((t) => ({ ...t, options: shuffle(t.options.slice()) }));
+  }
+
+  function buildU5WordBlank(idx) {
+    const w4 = (a, b, c, d) => shuffle([a, b, c, d]);
+    const rows = [
+      { promptLine: "don't ______ in the classroom", target: "run", options: w4("run", "walk", "play", "read") },
+      { promptLine: "do your ______", target: "best", options: w4("best", "good", "nice", "next") },
+      { promptLine: "take ______ to speak", target: "turns", options: w4("turns", "time", "tries", "toys") },
+      { promptLine: "say ______ words", target: "nice", options: w4("nice", "good", "new", "six") },
+      { promptLine: "give a helping ______", target: "hand", options: w4("hand", "head", "hold", "heart") },
+      { promptLine: "put ______ your things", target: "away", options: w4("away", "on", "in", "off") },
+      { promptLine: "what ______ do you like? I like say nice words", target: "rules", options: w4("rules", "rooms", "rulers", "reads") },
+      { promptLine: "what ______ you?", target: "about", options: w4("about", "is", "are", "for") },
+    ];
+    const b = rows[idx] || rows[0];
+    return {
+      kind: "L17E",
+      cat: "word",
+      l17eMode: "word",
+      title: "U5 短语 · 选词填空",
+      phrase: U5_PHRASES[idx],
+      promptLine: b.promptLine,
+      target: b.target,
+      options: b.options,
+    };
+  }
+
+  function buildU5LetterBlank(idx) {
+    const plan = ["classroom", "best", "speak", "words", "helping", "things", "rules", "you"];
+    const w = plan[idx] || "nice";
+    const phrase = U5_PHRASES[idx];
+    return {
+      kind: "L17E",
+      cat: "word",
+      l17eMode: "letters",
+      title: "U5 短语 · 补字母",
+      phrase,
+      word: { en: w },
+      tasks: buildU5LetterSubtasks(w),
+    };
+  }
+
+  /** 课本 Classroom Rules 插图（仅前 6 条有对应小图，第 7/8 条不在本海报） */
+  const U5_POSTER_IMAGES = [
+    "assets/u5/rule_panel_1.png",
+    "assets/u5/rule_panel_2.png",
+    "assets/u5/rule_panel_3.png",
+    "assets/u5/rule_panel_4.png",
+    "assets/u5/rule_panel_5.png",
+    "assets/u5/rule_panel_6.png",
+  ];
+
+  function buildU5SixOptions(correct) {
+    const six = U5_PHRASES.slice(0, 6).map((p) => p.en);
+    return shuffle([correct, ...shuffle(six.filter((x) => x !== correct)).slice(0, 3)]);
+  }
+
+  function buildU5ImageMatchStep() {
+    return {
+      kind: "L17MT",
+      cat: "word",
+      title: "U5 短语 · 教材插图匹配",
+      prompt: "以下 6 幅图来自课本《Classroom Rules》插图。",
+      subPrompt: "每行看图，选出与图中英文句子一致的英语短语。全部选对可过关。",
+      rows: U5_POSTER_IMAGES.map((image, i) => ({
+        image,
+        target: U5_PHRASES[i].en,
+        options: buildU5SixOptions(U5_PHRASES[i].en),
+      })),
+    };
+  }
+
+  function buildLevel17Steps() {
+    const steps = [];
+    U5_PHRASES.forEach((phrase, i) => {
+      steps.push(
+        { kind: "L17A", cat: "word", title: "U5 短语 · 看图选英文", phrase, target: phrase.en, options: buildU5Options(phrase.en) },
+        { kind: "L17B", cat: "word", title: "U5 短语 · 看中文选英文", phrase, promptZh: phrase.zh, target: phrase.en, options: buildU5Options(phrase.en) },
+        { kind: "L17C", cat: "word", title: "U5 短语 · 听英文选英文", phrase, target: phrase.en, options: buildU5Options(phrase.en) },
+        { kind: "L17D", cat: "word", title: "U5 短语 · 听中文选英文", phrase, target: phrase.en, options: buildU5Options(phrase.en) }
+      );
+      if (i % 2 === 0) {
+        steps.push(buildU5WordBlank(i));
+      } else {
+        steps.push(buildU5LetterBlank(i));
+      }
+      const sentence = phrase.en;
+      const tokens = phrase.orderTokens.slice();
+      steps.push({
+        kind: "L17F",
+        cat: "sentence",
+        title: "U5 短语 · 按顺序组句",
+        phrase,
+        sentence,
+        tokens,
+        sentenceZh: "按顺序点词块，把短语说完整。",
+      });
+    });
+    steps.push(buildU5ImageMatchStep());
+    return steps;
+  }
+
   function revealOddOneOutRowMeta(row, gridEl) {
     if (!gridEl || !row.wordCategories || row.wordCategories.length === 0) return;
     const zhList = row.wordZh || [];
@@ -1568,6 +1707,8 @@
       let steps;
       if (lv === 7 || lv === 8) {
         steps = buildReviewLevelSteps(lv, w1, w2);
+      } else if (lv === 17) {
+        steps = buildLevel17Steps();
       } else if (lv === 16) {
         steps = buildLevel16Steps();
       } else if (lv === 15) {
@@ -1916,11 +2057,63 @@
     return String(raw || "").trim().slice(0, 20);
   }
 
-  /** 该用户名登录时解锁全部关卡（不区分大小写） */
-  const TEACHER_FULL_UNLOCK_USERNAME = "iamzhuanglaoshi";
+  /**
+   * 游戏创作者 / 全解锁老师账号：登录后全关卡可点，选关或石头路时可跳任意环节。
+   * 不区分大小写，例如 Iamzhuanglaoshi 与 iamzhuanglaoshi 等效。
+   */
+  const GAME_CREATOR_USERNAMES = new Set(["iamzhuanglaoshi"]);
+
+  function isGameCreatorUser(name) {
+    return GAME_CREATOR_USERNAMES.has(String(normalizeUserName(name) || "").trim().toLowerCase());
+  }
 
   function isTeacherFullUnlockUser(name) {
-    return normalizeUserName(name).toLowerCase() === TEACHER_FULL_UNLOCK_USERNAME;
+    return isGameCreatorUser(name);
+  }
+
+  /**
+   * 将本关 1..N 个环节在「学校→课室→操场→体育馆→艺术馆→终点」6 个路标上均分；返回每站要跳转的环节下标（0 起计）。
+   * 第 0～4 站 = 前 5 个区间的起点 b[0]..b[4]；第 5 站「终点」= 最后一环（N-1）。
+   */
+  function getStoryMapBoundaries0(totalSteps) {
+    const t = Math.max(0, totalSteps);
+    if (t <= 1) return { last: 0, b: [0, 0, 0, 0, 0, 0, 0] };
+    const last = t - 1;
+    const b = [];
+    for (let i = 0; i <= 6; i += 1) b.push(Math.floor((i * last) / 6));
+    return { last, b };
+  }
+
+  function getStoryMapStepStarts0(totalSteps) {
+    const t = Math.max(0, totalSteps);
+    if (t <= 1) return [0, 0, 0, 0, 0, 0];
+    const last = t - 1;
+    if (t <= 6) {
+      return [0, 1, 2, 3, 4, 5].map((k) => (k < t - 1 ? k : last));
+    }
+    const { b } = getStoryMapBoundaries0(t);
+    return [b[0], b[1], b[2], b[3], b[4], last];
+  }
+
+  function currentStoryMapNode6(stepIndex, totalSteps) {
+    const t = totalSteps;
+    if (t <= 1) return 0;
+    const last = t - 1;
+    if (t <= 6) {
+      if (stepIndex >= last) return 5;
+      return Math.min(4, stepIndex);
+    }
+    const { b } = getStoryMapBoundaries0(t);
+    if (stepIndex >= last) return 5;
+    for (let k = 0; k < 5; k += 1) {
+      if (stepIndex >= b[k] && stepIndex < b[k + 1]) return k;
+    }
+    if (stepIndex >= b[5] && stepIndex <= b[6]) return 5;
+    return 5;
+  }
+
+  function shouldShowStoryMap() {
+    return state.currentLevel >= 7 || isGameCreatorUser(playerName);
   }
 
   function applyTeacherFullUnlockIfNeeded() {
@@ -2166,6 +2359,7 @@
     const levelObj = LEVELS[state.currentLevel - 1];
     const stepMax = levelObj && levelObj.steps ? Math.max(0, levelObj.steps.length - 1) : 0;
     state.currentStepIndex = Math.min(stepMax, Math.max(0, state.currentStepIndex));
+    applyTeacherFullUnlockIfNeeded();
     saveState(state);
     return { ok: true };
   }
@@ -2494,6 +2688,7 @@
 
   function getAutoSpeakText(step) {
     if (!step) return "";
+    if (step.kind && step.kind.indexOf("L17") === 0) return "";
     if (step.kind === "CLZ") return "";
     if (state.currentLevel === 14 && step.passage) return "";
     if (state.currentLevel === 12) {
@@ -2534,7 +2729,7 @@
 
   function updateHud() {
     const lv = currentLevelObj();
-    const total = lv ? lv.steps.length : 16;
+    const total = lv ? lv.steps.length : MAX_LEVEL;
     const idx = Math.min(state.currentStepIndex, total - 1);
     const passed = (stepStatus.isCorrect && !stepStatus.hadWrong) || stepStatus.graded ? 1 : 0;
     const pct = ((idx + passed) / total) * 100;
@@ -2549,7 +2744,10 @@
     frogOutfit.textContent = outfit;
     applyOutfitPlacement(outfit);
     updateFrogBodyGrowth(state.currentLevel);
-    if (frogActor) frogActor.classList.toggle("frog-actor--level16", state.currentLevel === 16);
+    if (frogActor) {
+      frogActor.classList.toggle("frog-actor--level16", state.currentLevel === 16);
+      frogActor.classList.toggle("frog-actor--level17", state.currentLevel === 17);
+    }
     if (frogNameTag) frogNameTag.textContent = playerName || "小青蛙";
     upsertCurrentPlayerScore();
     renderRoute();
@@ -2655,7 +2853,7 @@
   }
 
   function showLevelCelebration(nextLevel, done) {
-    showCelebrationOverlay(done ? "🏆 Unit 4 全部通关！" : "🎉 恭喜进入第 " + nextLevel + " 关", { duration: 1700 });
+    showCelebrationOverlay(done ? "🏆 U5 记短语·全部通关！" : "🎉 恭喜进入第 " + nextLevel + " 关", { duration: 1700 });
   }
 
   function maybeShowLevelStartCelebration() {
@@ -2762,7 +2960,7 @@
       titleEl.classList.add("screen-title--level16");
     }
     root.appendChild(titleEl);
-    if (state.currentLevel >= 7) {
+    if (shouldShowStoryMap()) {
       renderStoryMap();
     }
   }
@@ -2777,26 +2975,44 @@
       row.appendChild(btn);
     }
     root.appendChild(row);
-    if (state.currentLevel >= 7) {
+    if (shouldShowStoryMap()) {
       renderStoryMap();
     }
   }
 
   function renderStoryMap() {
     const lv = currentLevelObj();
-    const total = lv ? lv.steps.length : 16;
-    const progress = total ? state.currentStepIndex / (total - 1 || 1) : 0;
+    const total = lv ? lv.steps.length : 0;
+    const t = Math.max(0, total);
     const nodes = ["学校", "课室", "操场", "体育馆", "艺术馆", "终点"];
-    const active = Math.min(nodes.length - 1, Math.floor(progress * (nodes.length - 1)));
+    const creator = isGameCreatorUser(playerName);
+    const stepStarts0 = t ? getStoryMapStepStarts0(t) : [0, 0, 0, 0, 0, 0];
+    const activeN = t ? currentStoryMapNode6(state.currentStepIndex, t) : 0;
     const wrap = el("div", "story-map", "");
+    if (creator) wrap.classList.add("story-map--creator");
     nodes.forEach((name, idx) => {
-      const n = el("div", "story-map__node", name);
-      if (idx <= active) n.classList.add("story-map__node--on");
-      if (idx === active) n.classList.add("story-map__node--current");
+      const n = creator
+        ? el("button", "story-map__node story-map__node--clickable", name)
+        : el("div", "story-map__node", name);
+      if (creator) n.type = "button";
+      if (idx <= activeN) n.classList.add("story-map__node--on");
+      if (idx === activeN) n.classList.add("story-map__node--current");
+      if (creator) {
+        n.setAttribute("aria-label", name + "，跳转到本关第 " + (stepStarts0[idx] + 1) + " 环节");
+        n.addEventListener("click", () => {
+          const to = stepStarts0[idx];
+          if (to === state.currentStepIndex) return;
+          state.currentStepIndex = to;
+          currentStepResult = null;
+          wrongAttemptsOnCurrentStep = 0;
+          saveState(state);
+          runEyeFlash(renderCurrentStep);
+        });
+      }
       wrap.appendChild(n);
       if (idx < nodes.length - 1) {
         const link = el("div", "story-map__link", "");
-        if (idx < active) link.classList.add("story-map__link--on");
+        if (idx < activeN) link.classList.add("story-map__link--on");
         wrap.appendChild(link);
       }
     });
@@ -2950,6 +3166,249 @@
     root.appendChild(options);
     root.appendChild(answerKey);
     paint();
+  }
+
+  function u5TextEq(a, b) {
+    const norm = (x) =>
+      String(x || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[“”`]/g, '"')
+        .replace(/\s+/g, " ");
+    return norm(a) === norm(b);
+  }
+
+  function renderL17A(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt prompt--sub", "看场景图标，选择对应的完整英文短语"));
+    root.appendChild(el("div", "emoji-hero-phrase", step.phrase.emoji));
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid choice-grid--l17-phrase");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn choice-btn--phrase", opt);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        if (u5TextEq(opt, step.target)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>正确答案：</strong> " + step.target);
+    });
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function renderL17B(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt", step.promptZh || step.phrase.zh));
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid choice-grid--l17-phrase");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn choice-btn--phrase", withZhInLevel11(opt));
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        if (u5TextEq(opt, step.target)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>正确答案：</strong> " + step.target);
+    });
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function renderL17C(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt prompt--sub", "听英文后，点选你听到的短语（可点喇叭重播）"));
+    renderAudioButton(step.target);
+    setTimeout(() => {
+      playEnglishAudioGuaranteed(step.target);
+    }, 120);
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid choice-grid--l17-phrase");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn choice-btn--phrase", opt);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        if (u5TextEq(opt, step.target)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>正确答案：</strong> " + step.target);
+    });
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function renderL17D(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt prompt--sub", "听中文后，选出对应的英文短语"));
+    const zline = el("div", "audio-row");
+    const zbtn = el("button", "btn-audio btn-audio--blue", "🔊");
+    zbtn.type = "button";
+    zbtn.setAttribute("aria-label", "重播中文");
+    const zh = (step.phrase && step.phrase.zh) || "";
+    zbtn.addEventListener("click", () => speakChineseTTS(zh));
+    zline.appendChild(zbtn);
+    root.appendChild(zline);
+    setTimeout(() => {
+      if (zh) speakChineseTTS(zh);
+    }, 120);
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid choice-grid--l17-phrase");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn choice-btn--phrase", opt);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        if (u5TextEq(opt, step.target)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>正确答案：</strong> " + step.target);
+    });
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function renderL17E(step) {
+    if (step.l17eMode === "letters" && step.word && step.tasks) {
+      return renderW3({ kind: "W3", cat: "word", title: step.title, word: step.word, tasks: step.tasks });
+    }
+    renderHeader(step);
+    root.appendChild(el("div", "prompt", step.promptLine));
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid choice-grid--l17-wordpick");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn", opt);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        if (String(opt).trim().toLowerCase() === String(step.target).trim().toLowerCase()) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>正确答案：</strong> " + step.target);
+    });
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function renderL17ImageMatch(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt", step.prompt));
+    if (step.subPrompt) {
+      root.appendChild(el("div", "prompt prompt--sub l16-bundle__hint", step.subPrompt));
+    }
+    const answerKey = createAnswerKey();
+    const wrap = el("div", "l16-bundle l17mt-bundle", "");
+    const rowDone = step.rows.map(() => false);
+
+    function checkAllDone() {
+      return rowDone.every(Boolean);
+    }
+
+    step.rows.forEach((row, rowIdx) => {
+      const rowEl = el("div", "l16-bundle-row l17mt-row", "");
+      const num = el("div", "l16-bundle-row__num", String(rowIdx + 1));
+      const imgBox = el("div", "l17mt-row__img", "");
+      const img = document.createElement("img");
+      img.src = row.image;
+      img.alt = "课本插图 " + (rowIdx + 1);
+      img.loading = "lazy";
+      imgBox.appendChild(img);
+      const grid = el("div", "choice-grid choice-grid--l17-phrase l17mt-row__grid", "");
+      const main = el("div", "l17mt-row__main", "");
+      main.appendChild(imgBox);
+      main.appendChild(grid);
+      rowEl.appendChild(num);
+      rowEl.appendChild(main);
+
+      row.options.forEach((opt) => {
+        const b = el("button", "choice-btn choice-btn--phrase", opt);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll(".choice-btn").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (u5TextEq(opt, row.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll(".choice-btn").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            if (checkAllDone()) {
+              stepStatus.markCorrect();
+            }
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            setTimeout(() => {
+              if (!rowDone[rowIdx] && b.classList.contains("choice-btn--wrong")) {
+                b.classList.remove("choice-btn--wrong");
+              }
+            }, 450);
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      wrap.appendChild(rowEl);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = step.rows.map((r, i) => (i + 1) + ". " + r.target);
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+      wrap.querySelectorAll(".l17mt-row__grid").forEach((grid) => {
+        grid.querySelectorAll(".choice-btn").forEach((btn) => {
+          btn.disabled = true;
+        });
+      });
+    });
+    root.appendChild(wrap);
+    root.appendChild(answerKey);
   }
 
   function renderS1(step) {
@@ -4176,6 +4635,13 @@
     L16R: renderLevel16Reply,
     L16R2: renderLevel16Reply,
     L16TF: renderLevel16TrueFalse,
+    L17A: renderL17A,
+    L17B: renderL17B,
+    L17C: renderL17C,
+    L17D: renderL17D,
+    L17E: renderL17E,
+    L17F: (s) => renderSentenceBuilder(s, false),
+    L17MT: renderL17ImageMatch,
   };
 
   function renderCurrentStep() {
@@ -4237,7 +4703,7 @@
       showLevelCelebration(state.currentLevel, done);
       if (done) {
         clearRoot();
-        root.appendChild(el("div", "prompt", "🏆 Unit 4 全部通关！"));
+        root.appendChild(el("div", "prompt", "🏆 U5 记短语·全部通关！"));
         currentStepResult = "done";
         syncActionBar();
         updateHud();
@@ -4643,6 +5109,7 @@
       b.addEventListener("click", () => {
         state.currentLevel = i;
         state.currentStepIndex = 0;
+        currentStepResult = null;
         saveState(state);
         modal.classList.add("modal-overlay--hidden");
         renderCurrentStep();

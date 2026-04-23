@@ -362,23 +362,58 @@ body {
   overflow: visible;
 }
 
-/* 第16关：苹果 emoji 搁在头顶（frog-actor overflow 可见） */
+/* 第16关：苹果搁头顶；第17关：左右手各一苹果，头顶隐藏 */
 .frog-apple-emoji {
   position: absolute;
-  left: 50%;
-  top: 0;
   z-index: 4;
-  font-size: clamp(40px, 13vw, 56px);
   line-height: 1;
   pointer-events: none;
   opacity: 0;
-  transform: translate(-50%, -42%) rotate(-6deg);
-  transform-origin: center bottom;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   transition: opacity 0.35s ease;
 }
 
-.frog-actor--level16 .frog-apple-emoji {
+.frog-apple-emoji--head {
+  left: 50%;
+  top: 0;
+  font-size: clamp(40px, 13vw, 56px);
+  transform: translate(-50%, -42%) rotate(-6deg);
+  transform-origin: center bottom;
+}
+
+.frog-apple-emoji--hand-l,
+.frog-apple-emoji--hand-r {
+  top: 66%;
+  font-size: clamp(26px, 9vw, 38px);
+  transform-origin: center center;
+}
+
+.frog-apple-emoji--hand-l {
+  left: 2%;
+  transform: translate(0, -8%) rotate(-16deg);
+}
+
+.frog-apple-emoji--hand-r {
+  right: 2%;
+  left: auto;
+  transform: translate(0, -8%) rotate(14deg);
+}
+
+.frog-actor--level16 .frog-apple-emoji--head {
+  opacity: 1;
+}
+
+.frog-actor--level16 .frog-apple-emoji--hand-l,
+.frog-actor--level16 .frog-apple-emoji--hand-r {
+  opacity: 0;
+}
+
+.frog-actor--level17 .frog-apple-emoji--head {
+  opacity: 0;
+}
+
+.frog-actor--level17 .frog-apple-emoji--hand-l,
+.frog-actor--level17 .frog-apple-emoji--hand-r {
   opacity: 1;
 }
 
@@ -1157,6 +1192,89 @@ body {
   text-align: center;
 }
 
+/* 第17关 U5 短语 */
+.emoji-hero-phrase {
+  font-size: 4.5rem;
+  line-height: 1.1;
+  text-align: center;
+  margin: 4px 0 18px;
+  letter-spacing: 0.08em;
+  font-variant-emoji: emoji;
+}
+.choice-grid--l17-phrase {
+  grid-template-columns: 1fr;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (min-width: 480px) {
+  .choice-grid--l17-phrase {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.choice-btn--phrase {
+  font-size: 14px;
+  line-height: 1.3;
+  min-height: 52px;
+  text-align: left;
+  word-break: break-word;
+  hyphens: auto;
+}
+.choice-grid--l17-wordpick {
+  grid-template-columns: 1fr 1fr;
+  max-width: 400px;
+  margin: 0 auto;
+}
+.choice-grid--l17-wordpick .choice-btn {
+  font-size: 20px;
+}
+
+/* 第17关 · 教材插图匹配（6 行：左图右选文） */
+.l17mt-bundle {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.l17mt-row {
+  flex-wrap: wrap;
+}
+.l17mt-row__main {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.l17mt-row__img {
+  flex: 0 0 40%;
+  max-width: 200px;
+  min-width: 120px;
+  border-radius: 10px;
+  border: 2px solid #e5dcd0;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+.l17mt-row__img img {
+  width: 100%;
+  height: auto;
+  display: block;
+  vertical-align: top;
+}
+.l17mt-row__grid {
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: center;
+}
+@media (max-width: 520px) {
+  .l17mt-row__main {
+    flex-direction: column;
+  }
+  .l17mt-row__img {
+    max-width: 100%;
+  }
+}
+
 .inline-blank {
   border-bottom: 3px solid var(--duo-blue);
   min-width: 72px;
@@ -1614,6 +1732,32 @@ body {
 .story-map__node--current {
   background: #fff2bf;
   border-color: #ffb84d;
+}
+
+/* 创作者：路标为可点击（环节跳转） */
+.story-map--creator .story-map__node--clickable {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  color: #6a6a6a;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  transition: transform 0.08s ease, filter 0.1s ease;
+}
+.story-map--creator .story-map__node--clickable.story-map__node--on {
+  color: #2f5d12;
+}
+.story-map--creator .story-map__node--clickable.story-map__node--current {
+  color: #5a3d00;
+}
+.story-map--creator .story-map__node--clickable:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+.story-map--creator .story-map__node--clickable:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .story-map__link {
