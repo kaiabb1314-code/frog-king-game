@@ -25,7 +25,7 @@
               <div class="frog-track__frog" id="frog-mascot">🐸</div>
             </div>
             <div class="frog-track__label">
-              <span id="step-label">环节 1 / 12</span>
+              <span id="step-label">环节 1 / 1 · 第 1 关</span>
               <span class="unit-tag">Unit 4</span>
             </div>
           </div>
@@ -43,14 +43,143 @@
             <div class="top-bar__spacer top-bar__actions">
               <button type="button" class="mini-link" id="btn-level-picker">关卡</button>
               <button type="button" class="mini-link" id="btn-leaderboard">排行榜</button>
+              <button type="button" class="mini-link" id="btn-set-pin">设置密码</button>
+              <button type="button" class="mini-link" id="btn-logout">退出登录</button>
             </div>
           </div>
         </header>
 
-        <section class="character-area" aria-live="polite">
+        <section id="character-area" class="character-area" aria-live="polite">
           <div class="frog-stage">
             <div id="frog-name-tag" class="frog-name-tag">小青蛙</div>
-            <div id="frog-actor" class="frog-actor" data-mood="idle" title="青蛙大王">🐸<span class="frog-crown" aria-hidden="true">👑</span><span id="frog-outfit" class="frog-outfit" aria-hidden="true">🎀</span></div>
+            <div id="frog-actor" class="frog-actor" data-mood="idle" title="青蛙大王">
+              <svg class="frog-rig" viewBox="0 0 260 220" aria-hidden="true">
+                <defs>
+                  <radialGradient id="frogHeadGrad" cx="52%" cy="30%" r="75%">
+                    <stop offset="0%" stop-color="#a5ea67" />
+                    <stop offset="45%" stop-color="#79c845" />
+                    <stop offset="100%" stop-color="#4b932f" />
+                  </radialGradient>
+                  <radialGradient id="frogCheekGrad" cx="50%" cy="35%" r="75%">
+                    <stop offset="0%" stop-color="#b9ef85" />
+                    <stop offset="100%" stop-color="#70ba3f" />
+                  </radialGradient>
+                  <linearGradient id="frogLimbGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#9be45a" />
+                    <stop offset="100%" stop-color="#4d9c33" />
+                  </linearGradient>
+                  <radialGradient id="frogBellyGrad" cx="50%" cy="38%" r="78%">
+                    <stop offset="0%" stop-color="#f4f7ea" />
+                    <stop offset="65%" stop-color="#dde5cc" />
+                    <stop offset="100%" stop-color="#c8d2b7" />
+                  </radialGradient>
+                  <radialGradient id="frogEyeGrad" cx="42%" cy="34%" r="76%">
+                    <stop offset="0%" stop-color="#5b5b5b" />
+                    <stop offset="100%" stop-color="#0f0f0f" />
+                  </radialGradient>
+                </defs>
+
+                <g class="frog-head-art">
+                  <ellipse cx="130" cy="44" rx="31" ry="24" fill="url(#frogHeadGrad)" stroke="#3d7b24" stroke-width="3.4" />
+                  <ellipse cx="96" cy="47" rx="22" ry="26" fill="url(#frogHeadGrad)" stroke="#3d7b24" stroke-width="3.2" />
+                  <ellipse cx="164" cy="47" rx="22" ry="26" fill="url(#frogHeadGrad)" stroke="#3d7b24" stroke-width="3.2" />
+                  <ellipse cx="130" cy="76" rx="54" ry="31" fill="url(#frogHeadGrad)" stroke="#3d7b24" stroke-width="3.8" />
+                  <ellipse cx="99" cy="74" rx="15" ry="8" fill="url(#frogCheekGrad)" opacity="0.75" />
+                  <ellipse cx="161" cy="74" rx="15" ry="8" fill="url(#frogCheekGrad)" opacity="0.75" />
+                  <path d="M84 60 Q130 30 176 60" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="3" stroke-linecap="round" />
+
+                  <g class="frog-eye-bulge">
+                    <ellipse cx="100" cy="49" rx="13.5" ry="16.8" fill="#fdfdfd" stroke="#2f2f2f" stroke-width="1.9" />
+                    <ellipse cx="160" cy="49" rx="13.5" ry="16.8" fill="#fdfdfd" stroke="#2f2f2f" stroke-width="1.9" />
+                    <ellipse cx="100" cy="53.5" rx="8.3" ry="10.9" fill="url(#frogEyeGrad)" />
+                    <ellipse cx="160" cy="53.5" rx="8.3" ry="10.9" fill="url(#frogEyeGrad)" />
+                    <ellipse cx="98" cy="48.8" rx="2.5" ry="3.2" fill="#fff" />
+                    <ellipse cx="158" cy="48.8" rx="2.5" ry="3.2" fill="#fff" />
+                    <ellipse cx="102.5" cy="56.5" rx="1.2" ry="1.6" fill="rgba(255,255,255,0.55)" />
+                    <ellipse cx="162.5" cy="56.5" rx="1.2" ry="1.6" fill="rgba(255,255,255,0.55)" />
+                  </g>
+
+                  <ellipse cx="121" cy="69" rx="2.3" ry="1.9" fill="#1a1a1a" />
+                  <ellipse cx="139" cy="69" rx="2.3" ry="1.9" fill="#1a1a1a" />
+                  <path class="frog-mouth-line frog-mouth-line--main" d="M94 82 Q130 98 166 82" fill="none" stroke="#17360f" stroke-width="3.6" stroke-linecap="round" />
+                  <path class="frog-mouth-line frog-mouth-line--hi" d="M99 84 Q130 96 161 84" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.8" stroke-linecap="round" />
+                </g>
+
+                <g id="frog-part-neck" class="frog-part frog-part--neck">
+                  <ellipse cx="130" cy="101" rx="11.8" ry="12.4" fill="url(#frogLimbGrad)" stroke="#3f7d25" stroke-width="2.4" />
+                  <ellipse cx="130" cy="98" rx="6.2" ry="3.1" fill="rgba(255,255,255,0.33)" />
+                  <ellipse cx="130" cy="111.5" rx="13.5" ry="4.2" fill="rgba(72,141,44,0.55)" />
+                </g>
+
+                <g id="frog-part-body" class="frog-part frog-part--body">
+                  <path d="M130 92 C100 92 81 116 83 145 C85 176 104 196 130 196 C156 196 175 176 177 145 C179 116 160 92 130 92 Z" fill="url(#frogLimbGrad)" stroke="#3f7d25" stroke-width="3.2" />
+                  <ellipse cx="114" cy="123" rx="19.5" ry="9.2" fill="rgba(255,255,255,0.22)" />
+                  <ellipse cx="148" cy="165" rx="16" ry="7.5" fill="rgba(0,0,0,0.09)" />
+                  <path d="M95 118 Q130 101 165 118" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2.2" stroke-linecap="round" />
+                </g>
+
+                <g id="frog-part-left-arm" class="frog-part frog-part--left-arm">
+                  <path d="M84 118 Q68 138 60 162" fill="none" stroke="url(#frogLimbGrad)" stroke-width="16" stroke-linecap="round" />
+                  <path d="M84 118 Q68 138 60 162" fill="none" stroke="#3f7d25" stroke-width="3" stroke-linecap="round" />
+                  <path d="M84 118 Q70 137 63 158" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2.5" stroke-linecap="round" />
+                </g>
+                <g id="frog-part-left-hand" class="frog-part frog-part--left-hand">
+                  <circle cx="57" cy="169" r="12.3" fill="url(#frogLimbGrad)" stroke="#3f7d25" stroke-width="2.8" />
+                  <ellipse cx="54" cy="165" rx="5.5" ry="3" fill="rgba(255,255,255,0.28)" />
+                  <circle cx="46" cy="175" r="3.1" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                  <circle cx="57" cy="179" r="3.1" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                  <circle cx="68" cy="175" r="3.1" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                </g>
+
+                <g id="frog-part-right-arm" class="frog-part frog-part--right-arm">
+                  <path d="M176 118 Q192 138 200 162" fill="none" stroke="url(#frogLimbGrad)" stroke-width="16" stroke-linecap="round" />
+                  <path d="M176 118 Q192 138 200 162" fill="none" stroke="#3f7d25" stroke-width="3" stroke-linecap="round" />
+                  <path d="M176 118 Q190 137 197 158" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2.5" stroke-linecap="round" />
+                </g>
+                <g id="frog-part-right-hand" class="frog-part frog-part--right-hand">
+                  <circle cx="203" cy="169" r="12.3" fill="url(#frogLimbGrad)" stroke="#3f7d25" stroke-width="2.8" />
+                  <ellipse cx="200" cy="165" rx="5.5" ry="3" fill="rgba(255,255,255,0.28)" />
+                  <circle cx="192" cy="175" r="3.1" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                  <circle cx="203" cy="179" r="3.1" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                  <circle cx="214" cy="175" r="3.1" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                </g>
+
+                <g id="frog-part-torso" class="frog-part frog-part--torso">
+                  <path d="M130 104 C111 104 96 123 96 149 C96 175 112 194 130 194 C148 194 164 175 164 149 C164 123 149 104 130 104 Z" fill="url(#frogBellyGrad)" stroke="#b0b79e" stroke-width="2.4" />
+                  <ellipse cx="121" cy="131" rx="9.2" ry="4.8" fill="rgba(255,255,255,0.37)" />
+                  <ellipse cx="139" cy="170" rx="10.3" ry="4.5" fill="rgba(0,0,0,0.08)" />
+                </g>
+
+                <g id="frog-part-left-leg" class="frog-part frog-part--left-leg">
+                  <path d="M104 162 Q85 176 70 193" fill="none" stroke="url(#frogLimbGrad)" stroke-width="17" stroke-linecap="round" />
+                  <path d="M104 162 Q85 176 70 193" fill="none" stroke="#3f7d25" stroke-width="3" stroke-linecap="round" />
+                  <path d="M103 164 Q86 178 72 191" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.6" stroke-linecap="round" />
+                </g>
+                <g id="frog-part-left-foot" class="frog-part frog-part--left-foot">
+                  <ellipse cx="66" cy="198" rx="23.5" ry="9.3" fill="url(#frogLimbGrad)" stroke="#3f7d25" stroke-width="2.4" />
+                  <ellipse cx="60" cy="195.5" rx="8" ry="2.7" fill="rgba(255,255,255,0.25)" />
+                  <circle cx="52" cy="202" r="3.3" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                  <circle cx="66" cy="204" r="3.3" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                  <circle cx="79" cy="202" r="3.3" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                </g>
+
+                <g id="frog-part-right-leg" class="frog-part frog-part--right-leg">
+                  <path d="M156 162 Q175 176 190 193" fill="none" stroke="url(#frogLimbGrad)" stroke-width="17" stroke-linecap="round" />
+                  <path d="M156 162 Q175 176 190 193" fill="none" stroke="#3f7d25" stroke-width="3" stroke-linecap="round" />
+                  <path d="M157 164 Q174 178 188 191" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.6" stroke-linecap="round" />
+                </g>
+                <g id="frog-part-right-foot" class="frog-part frog-part--right-foot">
+                  <ellipse cx="194" cy="198" rx="23.5" ry="9.3" fill="url(#frogLimbGrad)" stroke="#3f7d25" stroke-width="2.4" />
+                  <ellipse cx="188" cy="195.5" rx="8" ry="2.7" fill="rgba(255,255,255,0.25)" />
+                  <circle cx="181" cy="202" r="3.3" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                  <circle cx="194" cy="204" r="3.3" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                  <circle cx="208" cy="202" r="3.3" fill="#f3cb3a" stroke="#b7931a" stroke-width="1.1" />
+                </g>
+              </svg>
+              <span class="frog-apple-emoji" aria-hidden="true">🍎</span>
+              <span class="frog-crown" aria-hidden="true">👑</span>
+              <span id="frog-outfit" class="frog-outfit" aria-hidden="true">🎀</span>
+            </div>
             <div id="frog-bubble" class="praise-pop praise-pop--hidden" role="status">真棒</div>
           </div>
           <div id="eye-flash" class="eye-flash" aria-hidden="true"></div>
@@ -74,7 +203,7 @@
   <div id="modal-overlay" class="modal-overlay modal-overlay--hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal">
       <h2 id="modal-title" class="modal__title">选择关卡</h2>
-      <p class="modal__hint">Unit 4 · 共 11 关 · 每关 2 个新单词 + 2 个句子 · 16+ 环节</p>
+      <p class="modal__hint">Unit 4 · 共 16 关 · 第12关视频 · 第14关阅读 · 第15关填空 · 第16关多环节（找不同·接话·填句·判断） · 第10关起青蛙长出身体</p>
       <div class="level-grid" id="level-grid"></div>
       <button type="button" class="btn-secondary" id="btn-close-modal">关闭</button>
     </div>
@@ -87,14 +216,20 @@
   <div id="name-modal-overlay" class="modal-overlay modal-overlay--hidden" role="dialog" aria-modal="true" aria-labelledby="name-modal-title">
     <div class="modal">
       <h2 id="name-modal-title" class="modal__title">欢迎来到青蛙大王变身记</h2>
-      <p class="modal__hint">你原本是一只默默无闻的小青蛙，偶然捡到一本魔法英语通关秘籍。每闯过一关，就会解锁新的装扮，离青蛙大王更近一步！现在先给你的小青蛙取个名字吧：请在名字前加上班级和学号，例如 10 班 1 号取名 good，可写成 1001good。右上角排行榜可以看到同伴蛙的皇冠数，通关越多，皇冠越多。</p>
+      <p class="modal__hint">你原本是一只默默无闻的小青蛙，偶然捡到一本魔法英语通关秘籍。每闯过一关，就会解锁新的装扮，离青蛙大王更近一步！可以直接进入，也可以设置4位数字密码用于跨设备登录。忘记密码可找老师查询。</p>
       <div class="name-evolution" aria-hidden="true">
         <span class="name-evolution__frog">🐸</span>
         <span class="name-evolution__arrow">✨ ➜ 📘 ➜ ✨</span>
         <span class="name-evolution__king">👑🐸</span>
       </div>
-      <input id="name-input" class="name-input" type="text" maxlength="20" placeholder="请输入你的名字" autocomplete="off" />
-      <button type="button" class="btn-primary" id="btn-save-name">开始闯关</button>
+      <input id="name-input" class="name-input" type="text" maxlength="20" placeholder="请输入用户名（如 1001good）" autocomplete="off" />
+      <input id="pin-input" class="name-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="请输入4位数字密码" autocomplete="off" />
+      <div class="name-pin-tip">设置密码（可跨设备登录同个账号）</div>
+      <div class="name-auth-actions">
+        <button type="button" class="btn-secondary" id="btn-login-name">登录账号</button>
+        <button type="button" class="btn-primary" id="btn-register-name">保存密码并进入</button>
+        <button type="button" class="btn-secondary" id="btn-enter-no-pin">直接进入（不设密码）</button>
+      </div>
     </div>
   </div>
 
@@ -102,15 +237,27 @@
     <div class="modal">
       <h2 id="leaderboard-title" class="modal__title">排行榜</h2>
       <p class="modal__hint">按 ⭐ 星星总数排序，星星越多排名越高。</p>
-      <div class="cloud-config-panel" id="cloud-config-panel">
-        <div class="modal__hint" style="margin-bottom:8px;">开启全网同榜：粘贴 Supabase 配置（只需一次）</div>
-        <input id="cloud-url-input" class="name-input" type="text" placeholder="Supabase URL（https://xxxx.supabase.co）" autocomplete="off" />
-        <input id="cloud-key-input" class="name-input" type="text" placeholder="Supabase anon key" autocomplete="off" />
-        <button type="button" class="btn-secondary" id="btn-save-cloud">保存云配置</button>
-        <div id="cloud-status" class="modal__hint" style="margin-top:8px;"></div>
-      </div>
       <div class="leaderboard-list" id="leaderboard-list"></div>
+      <div id="teacher-panel" class="teacher-panel teacher-panel--hidden">
+        <div class="teacher-panel__title">🔐 教师密码查询</div>
+        <div class="teacher-panel__hint">可按用户名搜索学生密码（明文）</div>
+        <div class="teacher-panel__actions">
+          <input id="teacher-search" class="name-input teacher-panel__search" type="text" maxlength="20" placeholder="输入用户名关键词" autocomplete="off" />
+          <button type="button" class="btn-secondary teacher-panel__refresh" id="btn-teacher-refresh">刷新</button>
+        </div>
+        <div id="teacher-list" class="teacher-list"></div>
+      </div>
       <button type="button" class="btn-secondary" id="btn-close-leaderboard">关闭</button>
+    </div>
+  </div>
+
+  <div id="set-pin-modal-overlay" class="modal-overlay modal-overlay--hidden" role="dialog" aria-modal="true" aria-labelledby="set-pin-title">
+    <div class="modal">
+      <h2 id="set-pin-title" class="modal__title">设置密码</h2>
+      <p class="modal__hint">为当前账号设置4位数字密码，可跨设备登录同个账号。</p>
+      <input id="set-pin-input" class="name-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="请输入4位数字密码" autocomplete="off" />
+      <button type="button" class="btn-primary" id="btn-save-pin">保存密码</button>
+      <button type="button" class="btn-secondary" id="btn-close-set-pin">取消</button>
     </div>
   </div>
 

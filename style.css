@@ -312,6 +312,7 @@ body {
   position: relative;
   padding: 8px 0 12px;
   min-height: 110px;
+  overflow: visible;
 }
 
 .frog-stage {
@@ -320,6 +321,7 @@ body {
   align-items: center;
   justify-content: center;
 }
+
 
 .frog-name-tag {
   margin-bottom: 4px;
@@ -336,10 +338,252 @@ body {
 
 .frog-actor {
   position: relative;
-  display: inline-block;
-  font-size: 72px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 260px;
+  height: 220px;
+  line-height: 0;
   transition: transform 0.2s ease;
+  overflow: visible;
+}
+
+/* 第16关：苹果 emoji 搁在头顶（frog-actor overflow 可见） */
+.frog-apple-emoji {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: 4;
+  font-size: clamp(40px, 13vw, 56px);
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -42%) rotate(-6deg);
+  transform-origin: center bottom;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: opacity 0.35s ease;
+}
+
+.frog-actor--level16 .frog-apple-emoji {
+  opacity: 1;
+}
+
+.frog-rig {
+  width: 260px;
+  height: 220px;
+  overflow: visible;
+  filter: drop-shadow(0 7px 9px rgba(0, 0, 0, 0.2));
+}
+
+.frog-rig path,
+.frog-rig ellipse,
+.frog-rig circle {
+  shape-rendering: geometricPrecision;
+}
+
+.frog-head-art {
+  transform-origin: center;
+  animation: frog-breath 2.6s ease-in-out infinite;
+}
+
+/* 第16关入场：眼睛夸张放大 + 渐晕（约 3s） */
+.character-area--level16-eye-intro {
+  z-index: 1;
+}
+
+.character-area--level16-eye-intro::before {
+  content: "";
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  top: -40%;
+  bottom: -25%;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 85% 55% at 50% 32%,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(200, 255, 220, 0.35) 28%,
+    rgba(20, 45, 35, 0.72) 62%,
+    rgba(8, 22, 18, 0.88) 100%
+  );
+  animation: level16-eye-vignette 3s cubic-bezier(0.45, 0, 0.2, 1) both;
+}
+
+.character-area--level16-eye-intro .frog-stage {
+  position: relative;
+  z-index: 3;
+  animation: level16-stage-jolt 3s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+
+.character-area--level16-eye-intro .frog-head-art {
+  animation-play-state: paused;
+}
+
+.character-area--level16-eye-intro .frog-rig {
+  overflow: visible;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.22));
+}
+
+.character-area--level16-eye-intro .frog-eye-bulge {
+  transform-origin: 130px 51px;
+  will-change: transform, filter;
+  animation: frog-eye-bulge-level16 3s cubic-bezier(0.25, 0.9, 0.32, 1.15) both;
+}
+
+@keyframes level16-eye-vignette {
+  0% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+
+/* 入场仅轻晃舞台，不 scale，避免红唇跟着被放大；眼睛单独由 .frog-eye-bulge 动画放大 */
+@keyframes level16-stage-jolt {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  8% {
+    transform: translate(1px, -2px);
+  }
+  18% {
+    transform: translate(-3px, 2px) rotate(-0.5deg);
+  }
+  28% {
+    transform: translate(2px, -1px) rotate(0.45deg);
+  }
+  42% {
+    transform: translate(0, 0);
+  }
+  58% {
+    transform: translate(0, 1px);
+  }
+}
+
+@keyframes frog-eye-bulge-level16 {
+  0% {
+    transform: scale(1);
+    filter: none;
+  }
+  5% {
+    transform: scale(0.88);
+    filter: brightness(1.05);
+  }
+  14% {
+    transform: scale(2.4);
+    filter: brightness(1.15) drop-shadow(0 0 6px rgba(255, 255, 255, 0.9));
+  }
+  22% {
+    transform: scale(11);
+    filter: brightness(1.35) drop-shadow(0 0 14px #fff) drop-shadow(0 0 42px rgba(100, 255, 200, 0.55));
+  }
+  30% {
+    transform: scale(13.5);
+    filter: brightness(1.42) drop-shadow(0 0 20px #fff) drop-shadow(0 0 56px rgba(120, 255, 230, 0.5));
+  }
+  38% {
+    transform: scale(12);
+    filter: brightness(1.28) drop-shadow(0 0 12px rgba(255, 255, 255, 0.95));
+  }
+  48% {
+    transform: scale(4.2);
+    filter: brightness(1.12) drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+  }
+  60% {
+    transform: scale(1.35);
+    filter: brightness(1.06);
+  }
+  72% {
+    transform: scale(0.94);
+    filter: none;
+  }
+  82% {
+    transform: scale(1.08);
+    filter: none;
+  }
+  92% {
+    transform: scale(0.99);
+  }
+  100% {
+    transform: scale(1);
+    filter: none;
+  }
+}
+
+.screen-title--level16 {
+  font-size: clamp(14px, 3.6vw, 18px);
+  font-weight: 800;
+  color: #0f5f9e;
+  line-height: 1.35;
+  max-width: 26em;
+  margin-left: auto;
+  margin-right: auto;
+  letter-spacing: 0.02em;
+}
+
+.screen-title--l16-reply-hero {
+  font-size: clamp(24px, 6.5vw, 34px);
+  font-weight: 900;
+  color: #0a4d7a;
+  line-height: 1.2;
+  text-align: center;
+  margin: 0 0 18px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.9), 0 3px 12px rgba(15, 95, 158, 0.18);
+  max-width: none;
+}
+
+.screen-title--l16-tf {
+  font-size: clamp(16px, 4.5vw, 22px);
+  font-weight: 900;
+  color: #0a4d7a;
+  line-height: 1.3;
+  text-align: center;
+  margin: 0 0 14px;
+  letter-spacing: 0.03em;
+  max-width: 22em;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.frog-part {
+  opacity: 0;
+  transform: translateY(7px) scale(0.88);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --part-on-transform: translateY(0) scale(1);
+}
+
+.frog-part--on {
+  opacity: 1;
+  transform: var(--part-on-transform);
+}
+
+.frog-part--left-leg,
+.frog-part--left-foot {
+  --part-on-transform: rotate(-8deg) translateY(-10px) scale(1);
+}
+
+.frog-part--neck {
+  --part-on-transform: translateY(0) scale(1.03);
+}
+
+.frog-part--right-leg,
+.frog-part--right-foot {
+  --part-on-transform: rotate(8deg) translateY(-10px) scale(1);
 }
 
 .frog-crown {
@@ -349,14 +593,85 @@ body {
 .frog-outfit {
   position: absolute;
   left: 50%;
-  top: -28px;
+  top: -4px;
   transform: translateX(-50%);
-  font-size: 36px;
+  font-size: 52px;
   line-height: 1;
   max-width: none;
   white-space: normal;
-  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.18));
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.2));
   pointer-events: none;
+}
+
+.frog-outfit--bow {
+  top: 92px;
+  left: 130px;
+  font-size: 52px;
+  transform: translateX(-50%) rotate(-3deg);
+}
+
+.frog-outfit--sunglasses {
+  top: -6px;
+  left: 130px;
+  font-size: 54px;
+  transform: translateX(-50%) rotate(-6deg);
+}
+
+
+.frog-outfit--cap {
+  top: -10px;
+  left: 129px;
+  font-size: 56px;
+  transform: translateX(-50%) rotate(-3deg);
+}
+
+.frog-outfit--scarf {
+  top: 98px;
+  left: 130px;
+  font-size: 54px;
+  transform: translateX(-50%);
+}
+
+.frog-outfit--hat {
+  top: -8px;
+  left: 129px;
+  font-size: 54px;
+  transform: translateX(-50%) rotate(7deg);
+}
+
+.frog-outfit--goggles {
+  top: -2px;
+  left: 130px;
+  font-size: 53px;
+  transform: translateX(-50%) rotate(-4deg);
+}
+
+.frog-outfit--headphones {
+  top: -4px;
+  left: 130px;
+  font-size: 55px;
+  transform: translateX(-50%);
+}
+
+.frog-outfit--badge {
+  top: -6px;
+  left: 94px;
+  font-size: 48px;
+  transform: translateX(-50%) rotate(-8deg);
+}
+
+.frog-outfit--star {
+  top: -10px;
+  left: 167px;
+  font-size: 50px;
+  transform: translateX(-50%) rotate(12deg);
+}
+
+.frog-outfit--wand {
+  top: 148px;
+  left: 206px;
+  font-size: 50px;
+  transform: translateX(-50%) rotate(18deg);
 }
 
 .frog-actor[data-mood="nod"] {
@@ -374,6 +689,11 @@ body {
   60% {
     transform: rotate(6deg) translateY(-1px);
   }
+}
+
+@keyframes frog-breath {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(1.2px); }
 }
 
 .praise-pop {
@@ -472,6 +792,158 @@ body {
   padding: 20px 16px 24px;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
   min-height: 280px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 第16关：一大题 7 小题同页 */
+.l16-bundle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.l16-bundle__hint {
+  margin-top: -10px !important;
+  margin-bottom: 10px !important;
+}
+
+.l16-bundle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.l16-bundle-row:last-child {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+
+.l16-bundle-row__num {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 13px;
+  color: #fff;
+  background: #58cc02;
+  border-radius: 50%;
+  margin-top: 16px;
+  box-shadow: 0 2px 0 #3fa602;
+}
+
+.l16-bundle-row__choices {
+  flex: 1;
+  min-width: 0;
+}
+
+.l16-bundle-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.l16-bundle-row__cue {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-line;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  border: 2px solid rgba(15, 95, 158, 0.2);
+}
+
+.l16-tf-statement {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--text);
+  padding: 8px 10px;
+  background: rgba(255, 250, 230, 0.95);
+  border-radius: 12px;
+  border: 2px solid rgba(240, 207, 106, 0.45);
+}
+
+.l16-tf-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.l16-tf-grid .l16-tf-btn {
+  flex: 1;
+  min-height: 52px;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.l16-bundle .choice-grid--odd-one-out .choice-btn {
+  padding: 10px 4px;
+  font-size: 14px;
+  min-height: 48px;
+}
+
+.l16-bundle-row__choices .choice-btn:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+/* 第16关第二页：接话，每行 A～E 五选一 */
+.l16-reply-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.l16-reply-row__scene {
+  font-size: 14px;
+  font-weight: 800;
+  color: #2d6a4f;
+}
+
+.l16-reply-row__dialogue {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-line;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  border: 2px solid rgba(88, 204, 2, 0.25);
+}
+
+.choice-grid--five {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: stretch;
+}
+
+.choice-grid--five .choice-btn {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+  font-size: 13px;
+  padding: 10px 8px;
+  min-height: 46px;
+}
+
+@media (min-width: 520px) {
+  .choice-grid--five .choice-btn {
+    flex: 1 1 calc(33.333% - 6px);
+  }
 }
 
 .screen-title {
@@ -565,6 +1037,69 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+/* 第16关：三项横排，词性在按钮下方 */
+.choice-grid--odd-one-out {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.choice-grid--odd-one-out .odd-one-out-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.choice-grid--odd-one-out .choice-btn {
+  width: 100%;
+  padding: 12px 6px;
+  font-size: 15px;
+}
+
+.odd-one-out-meta {
+  width: 100%;
+  text-align: center;
+  line-height: 1.35;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.odd-one-out-pos {
+  font-size: 13px;
+  font-weight: 800;
+  color: #3d4f5f;
+}
+
+.odd-one-out-zh {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563a8;
+}
+
+.odd-one-out-meta--hidden {
+  opacity: 0;
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.odd-one-out-meta:not(.odd-one-out-meta--hidden) {
+  opacity: 1;
+  visibility: visible;
+  height: auto;
+  margin-top: 0;
+  padding: 2px 0 0;
 }
 
 .choice-btn {
@@ -786,6 +1321,71 @@ body {
 .dialogue-box--yellow {
   background: #fff6cf;
   border: 2px solid #f0cf6a;
+}
+
+.reading-topic {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.reading-subhead {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.reading-passage {
+  background: #fff;
+  border: 2px solid #e8e8e8;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #2a2a2a;
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+  text-align: left;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.l16-reply-passage {
+  border-color: rgba(88, 204, 2, 0.35);
+  margin-bottom: 18px;
+  font-weight: 600;
+}
+
+.cloze-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.cloze-passage {
+  font-size: 15px;
+}
+
+.cloze-gap {
+  display: inline;
+  padding: 0 2px;
+  border-bottom: 2px dashed #b8b8b8;
+  margin: 0 1px;
+}
+
+.cloze-gap--active {
+  border-bottom-color: var(--duo-blue);
+  background: rgba(28, 176, 246, 0.12);
+  border-radius: 4px;
+}
+
+.cloze-gap__num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--duo-blue);
+  margin-right: 2px;
 }
 
 .challenge-zone--yellow .dialogue-box,
@@ -1148,6 +1748,28 @@ body {
   text-shadow: 0 3px 0 #a76a00;
 }
 
+.level-celebration--milestone .level-celebration__fireworks {
+  font-size: 58px;
+}
+
+.level-celebration--milestone .level-celebration__text {
+  margin-top: 18px;
+  font-size: clamp(48px, 9vw, 92px);
+  color: #fff37f;
+  text-shadow: 0 4px 0 #9a5600, 0 0 26px rgba(255, 200, 68, 0.55);
+}
+
+/* 第16关开场：全屏用户名 + 养蛙文案 */
+.level-celebration--level16-start .level-celebration__text {
+  font-size: clamp(36px, 7.5vw, 72px);
+  line-height: 1.2;
+  max-width: 96vw;
+  padding: 0 16px;
+  word-break: break-word;
+  color: #fff8e7;
+  text-shadow: 0 3px 0 #6b1a3a, 0 0 22px rgba(255, 120, 160, 0.45);
+}
+
 @keyframes fireworks-pop {
   0%, 100% { transform: scale(0.9); opacity: 0.8; }
   50% { transform: scale(1.14); opacity: 1; }
@@ -1247,6 +1869,25 @@ body {
   margin-bottom: 12px;
 }
 
+.name-pin-tip {
+  margin: -4px 2px 10px;
+  font-size: 13px;
+  color: #6a6a6a;
+  font-weight: 700;
+}
+
+.name-auth-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.name-auth-actions .btn-secondary,
+.name-auth-actions .btn-primary {
+  width: 100%;
+  margin-top: 0;
+}
+
 .name-evolution {
   display: flex;
   align-items: center;
@@ -1295,11 +1936,7 @@ body {
 }
 
 .cloud-config-panel {
-  border: 2px dashed #d9d9d9;
-  border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 10px;
-  background: #fafafa;
+  display: none !important;
 }
 
 .leaderboard-row {
@@ -1332,6 +1969,83 @@ body {
 .leaderboard-row--me {
   background: #fff7dc;
 }
+
+.teacher-panel {
+  margin-top: 10px;
+  border: 2px dashed #cfd7de;
+  border-radius: 12px;
+  background: #f9fcff;
+  padding: 10px;
+}
+
+.teacher-panel--hidden {
+  display: none;
+}
+
+.teacher-panel__title {
+  font-size: 16px;
+  font-weight: 900;
+  color: #3c5770;
+}
+
+.teacher-panel__hint {
+  margin-top: 4px;
+  color: #6d7c89;
+  font-size: 13px;
+}
+
+.teacher-panel__actions {
+  display: grid;
+  grid-template-columns: 1fr 106px;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.teacher-panel__search {
+  margin-bottom: 0;
+  height: 40px;
+  font-size: 15px;
+}
+
+.teacher-panel__refresh {
+  margin-top: 0;
+  width: 100%;
+  height: 40px;
+  padding: 0;
+}
+
+.teacher-list {
+  margin-top: 8px;
+  border: 1px solid #e4ecf2;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.teacher-row {
+  display: grid;
+  grid-template-columns: 1.1fr 0.7fr;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eff4f8;
+  font-size: 13px;
+}
+
+.teacher-row:last-child {
+  border-bottom: none;
+}
+
+.teacher-row__name {
+  font-weight: 800;
+  color: #28435a;
+}
+
+.teacher-row__pin {
+  text-align: right;
+  font-weight: 900;
+  color: #8a4d00;
+}
+
 
 .letter-pool {
   display: flex;
@@ -1381,6 +2095,39 @@ body {
   font-weight: 700;
   color: var(--duo-purple);
   margin-bottom: 8px;
+}
+
+.video-quiz-wrap {
+  background: #fff8e8;
+  border: 2px solid #f1d39c;
+  border-radius: 14px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.video-quiz-player {
+  width: 100%;
+  border-radius: 10px;
+  background: #000;
+  display: block;
+}
+
+.video-quiz-tip {
+  margin-top: 8px;
+  text-align: center;
+  color: #7a6200;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.video-quiz-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.video-quiz-actions .btn-secondary {
+  flex: 1;
 }
 
 @media (min-width: 420px) {

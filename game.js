@@ -17,6 +17,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
+  const MAX_LEVEL = 16;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -45,6 +46,22 @@
   ];
 
   const ABC = "abcdefghijklmnopqrstuvwxyz".split("");
+  const PRAISE_LINES = ["真棒！", "太厉害啦！", "学术蛙进化中！", "继续保持！", "答得漂亮！"];
+  const RETRY_LINES = ["没关系，再试一次就会了！", "你已经很接近了！", "稳住，我们马上答对！", "再想一想，你可以的！", "好样的，坚持就是胜利！"];
+  const LEVEL_START_CELEBRATIONS = {
+    10: "蛙长出身体啦！",
+    11: "蛙长出左手！",
+    12: "蛙长出右手！",
+    13: "蛙长出左脚！",
+    14: "蛙长出右脚！",
+    15: "我的蛙终于身体完整了！",
+  };
+  const VIDEO_EPISODE_CELEBRATIONS = [
+    "记忆蛙 +1！这一集拿下啦！",
+    "学术蛙状态拉满，三题全过！",
+    "太稳了！你的记忆力正在发光！",
+    "精彩！又解锁一段视频记忆！",
+  ];
 
   function shuffle(arr) {
     const copy = arr.slice();
@@ -200,8 +217,8 @@
     return {
       stars: loadNumber(STORAGE_KEYS.stars, 0),
       crowns: loadNumber(STORAGE_KEYS.crowns, 0),
-      unlockedLevel: Math.min(11, Math.max(1, loadNumber(STORAGE_KEYS.unlocked, 1))),
-      currentLevel: Math.min(11, Math.max(1, loadNumber(STORAGE_KEYS.lastLevel, 1))),
+      unlockedLevel: Math.min(MAX_LEVEL, Math.max(1, loadNumber(STORAGE_KEYS.unlocked, 1))),
+      currentLevel: Math.min(MAX_LEVEL, Math.max(1, loadNumber(STORAGE_KEYS.lastLevel, 1))),
       currentStepIndex: Math.max(0, loadNumber(STORAGE_KEYS.stepIndex, 0)),
     };
   }
@@ -212,6 +229,7 @@
     localStorage.setItem(STORAGE_KEYS.unlocked, String(state.unlockedLevel));
     localStorage.setItem(STORAGE_KEYS.lastLevel, String(state.currentLevel));
     localStorage.setItem(STORAGE_KEYS.stepIndex, String(state.currentStepIndex));
+    scheduleCloudPlayerStateSync();
   }
 
   function loadPlayerName() {
@@ -357,6 +375,32 @@
     u.rate = 0.95;
     window.speechSynthesis.speak(u);
     return true;
+  }
+
+  function speakChineseTTS(text) {
+    if (!window.speechSynthesis) return;
+    const raw = String(text || "").trim();
+    if (!raw) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(raw);
+    u.lang = "zh-CN";
+    u.rate = 0.98;
+    window.speechSynthesis.speak(u);
+  }
+
+  function isLevel16PraiseStepKind(kind) {
+    return kind === "L16" || kind === "L16R" || kind === "L16R2" || kind === "L16TF";
+  }
+
+  /** 第16关：每选对一小题（中文人声「呱呱」） */
+  function speakLevel16SubCorrect() {
+    if (state.currentLevel !== 16) return;
+    speakChineseTTS("呱呱");
+  }
+
+  /** 第16关一大题全对：仅英文「A+」 */
+  function speakLevel16StepPass() {
+    speakFallback("A+");
   }
 
   async function playEnglishAudioGuaranteed(text) {
@@ -719,7 +763,15 @@
 
     return [
       { kind: "A1", cat: "dialogue", title: "情境回应 · 1", ...sc[0], options: pick(sc[0].target) },
-      { kind: "A2", cat: "dialogue", title: "你来开口 · 1", scene: "你想加入他们，应该怎么说？", promptZh: "对帅气蛙说：", target: "Can I join you?", options: pick("Can I join you?") },
+      {
+        kind: "A2",
+        cat: "dialogue",
+        title: "你来开口 · 1",
+        scene: "你想加入他们，应该怎么说？",
+        promptZh: "对" + (sc[0].speaker || "同伴蛙") + "说：",
+        target: "Can I join you?",
+        options: pick("Can I join you?"),
+      },
       { kind: "P2", cat: "speaking", title: "口语1 · 跟读句子", target: "Can I join you?", hintZh: "请跟读你刚刚选择的句子" },
       { kind: "A1", cat: "dialogue", title: "情境回应 · 2", ...sc[1], options: pick(sc[1].target) },
       { kind: "A3", cat: "dialogue", title: "对话拼句 · 1", speaker: "你", targetSentence: "Can I join you?" },
@@ -741,13 +793,13 @@
         title: "双轮对话 · 实战",
         turns: [
           {
-            speaker: "帅气蛙",
+            speaker: sc[0].speaker || "同伴蛙",
             line: "Do you want to join us?",
             target: "I'd love to!",
             options: pick("I'd love to!"),
           },
           {
-            speaker: "美丽蛙",
+            speaker: sc[1].speaker || "同伴蛙",
             line: "Can I have a turn?",
             target: "You can go first.",
             options: pick("You can go first."),
@@ -849,14 +901,664 @@
     ];
   }
 
+  function buildStoryLevel12() {
+    const videos = [
+      "assets/videos/episode_1.mp4",
+      "assets/videos/episode_2.mp4",
+      "assets/videos/episode_3.mp4",
+      "assets/videos/episode_4.mp4",
+      "assets/videos/episode_5.mp4",
+    ];
+    const pick = (correct, extras) => shuffle([correct, ...shuffle(extras.filter((x) => x !== correct)).slice(0, 3)]);
+    const episodes = [
+      {
+        id: 1,
+        video: videos[0],
+        sceneKey: "school",
+        scene: "Watch Episode 1 first, then answer 3 questions.",
+        subtitles: ["Do you want to join us?", "Yes, I'd love to! Thanks!", "recess"],
+        questions: [
+          { title: "Video 1 - Q1", prompt: "What is Yiming's first sentence in the video?", target: "Do you want to join us?", options: pick("Do you want to join us?", ["Let's eat together!", "Can I have a turn?", "Come and join us, everyone!"]) },
+          { title: "Video 1 - Q2", prompt: "If someone invites you and you want to join, what can you say?", target: "Yes, I'd love to! Thanks!", options: pick("Yes, I'd love to! Thanks!", ["No, thanks! Football is just not my thing.", "You can go first.", "Let me help you."]) },
+          { title: "Video 1 - Q3", prompt: "What is the meaning of recess?", target: "break time", options: shuffle(["break time", "lunch", "gym", "after school"]) },
+        ],
+      },
+      {
+        id: 2,
+        video: videos[1],
+        sceneKey: "booth",
+        scene: "Watch Episode 2 first, then answer 3 questions.",
+        subtitles: ["Can I have a turn?", "That looks like fun. Can I try?", "You can go first."],
+        questions: [
+          { title: "Video 2 - Q1", prompt: "Which subtitle sentence asks for a turn?", target: "Can I have a turn?", options: pick("Can I have a turn?", ["Do you want to try?", "Let's eat together!", "Come on! Have a try!"]) },
+          { title: "Video 2 - Q2", prompt: "Which sentence means the activity looks fun and you want to try?", target: "That looks like fun. Can I try?", options: pick("That looks like fun. Can I try?", ["Do you want to join us?", "Why don't you sit on my back?", "Smile and laugh under the sun."]) },
+          { title: "Video 2 - Q3", prompt: "After \"Can I try?\", which subtitle response is correct?", target: "You can go first.", options: pick("You can go first.", ["No, thanks! Football is just not my thing.", "My name is Alice.", "Come and join us, everyone!"]) },
+        ],
+      },
+      {
+        id: 3,
+        video: videos[2],
+        sceneKey: "classroom",
+        scene: "Watch Episode 3 first, then answer 3 questions.",
+        subtitles: ["Hi, I'm Yiming. Do you want to join us?", "Let's eat together!", "Do you want to try?"],
+        questions: [
+          { title: "Video 3 - Q1", prompt: "Which subtitle includes self-introduction and invitation?", target: "Hi, I'm Yiming. Do you want to join us?", options: pick("Hi, I'm Yiming. Do you want to join us?", ["My name is Alice.", "Let's eat together!", "Come on! Have a try!"]) },
+          { title: "Video 3 - Q2", prompt: "Which subtitle invites people to eat together?", target: "Let's eat together!", options: pick("Let's eat together!", ["Let's play together!", "Do you want to try?", "You can go first."]) },
+          { title: "Video 3 - Q3", prompt: "Which subtitle asks someone to try something?", target: "Do you want to try?", options: pick("Do you want to try?", ["Do you want to join us?", "Can I have a turn?", "Why don't you sit on my back?"]) },
+        ],
+      },
+      {
+        id: 4,
+        video: videos[3],
+        sceneKey: "mountain",
+        scene: "Watch Episode 4 first, then answer 3 questions.",
+        subtitles: ["Why don't you sit on my back?", "Let me help you.", "My name is Alice."],
+        questions: [
+          { title: "Video 4 - Q1", prompt: "Which subtitle asks someone to sit on your back?", target: "Why don't you sit on my back?", options: pick("Why don't you sit on my back?", ["Come and play!", "My name is Alice.", "Skip and hop, jump and run."]) },
+          { title: "Video 4 - Q2", prompt: "Which subtitle shows offering help?", target: "Let me help you.", options: pick("Let me help you.", ["You can go first.", "Can I have a turn?", "Do you want to join us?"]) },
+          { title: "Video 4 - Q3", prompt: "Which subtitle sentence is self-introduction?", target: "My name is Alice.", options: pick("My name is Alice.", ["Hi, I'm Yiming. Do you want to join us?", "You can go first.", "Let's eat together!"]) },
+        ],
+      },
+      {
+        id: 5,
+        video: videos[4],
+        sceneKey: "finish",
+        scene: "Watch Episode 5 first, then answer 3 questions.",
+        subtitles: ["You're up next!", "Smile and laugh under the sun.", "Come and join us, everyone!"],
+        questions: [
+          { title: "Video 5 - Q1", prompt: "Which subtitle means you are next in line?", target: "You're up next!", options: pick("You're up next!", ["You can go first.", "Let me help you.", "Do you want to try?"]) },
+          { title: "Video 5 - Q2", prompt: "Which subtitle describes smiling and laughing under the sun?", target: "Smile and laugh under the sun.", options: pick("Smile and laugh under the sun.", ["Skip and hop, jump and run.", "My name is Alice.", "Can I have a turn?"]) },
+          { title: "Video 5 - Q3", prompt: "Which subtitle is the final group invitation?", target: "Come and join us, everyone!", options: pick("Come and join us, everyone!", ["Do you want to join us?", "Come and play!", "Yes, I'd love to! Thanks!"]) },
+        ],
+      },
+    ];
+
+    const steps = [];
+    episodes.forEach((ep) => {
+      steps.push({
+        kind: "VW",
+        cat: "story",
+        title: "Episode " + ep.id + " - Watch First",
+        video: ep.video,
+        sceneKey: ep.sceneKey,
+        scene: ep.scene,
+        subtitles: ep.subtitles,
+      });
+      ep.questions.forEach((q, idx) => {
+        steps.push({
+          kind: "VQ",
+          cat: "story",
+          title: q.title,
+          episodeId: ep.id,
+          episodeQuestionIndex: idx + 1,
+          sceneKey: ep.sceneKey,
+          prompt: q.prompt,
+          target: q.target,
+          options: q.options,
+        });
+      });
+    });
+
+    const intro = {
+      kind: "TIP",
+      cat: "story",
+      title: "Level 12 - Video Memory Challenge",
+      scene: "我们来看看青蛙的记忆力，能不能成为真正的学术蛙。",
+      content:
+        "先看每个视频，再回答3道记忆题。\n" +
+        "视频页和答题页分开，先看后答！",
+      btnText: "Start Memory Challenge",
+    };
+
+    const ending = {
+      kind: "RV1",
+      cat: "story",
+      title: "Final Question - Slogan",
+      prompt: "Which sentence is the final slogan?",
+      target: "Come and join us, everyone!",
+      options: shuffle([
+        "Come and join us, everyone!",
+        "Do you want to join us?",
+        "Come and play!",
+        "Let's eat together!",
+      ]),
+    };
+
+    return [intro, ...steps, ending];
+  }
+
+  const READING_LUCY_PASSAGE_1 =
+    'Lucy is new at school. She sees some classmates playing hopscotch during lunch break. Tim notices her and smiles. "Hi! I\'m Tim. Do you want to join us?" he asks. Lucy feels shy but nods. "Yes, I\'d love to! Thanks!" she says. The group cheers and teaches her the rules. Soon, Lucy is laughing and hopping with everyone. "Let\'s play together again tomorrow!" says Tim. Lucy feels happy because she made new friends.';
+
+  const READING_PASSAGE_2 =
+    'The PE class is learning the Five-Animal Play. Lucas pretends to be a bird, flapping his arms. "Fly like a bird!" he shouts. Yiming copies him and laughs. "Can I try the monkey move?" asks Nikki. "Sure! Jump like a monkey!" says Lucas. Nikki jumps around, and everyone claps. Mulan says, "This is fun! Let\'s all try together!" The students take turns acting like different animals. Even shy Sam joins in and says, "I want to be a tiger next!"';
+
+  const READING_PASSAGE_3 =
+    'After school, Amy asks Tom, "Do you want to go swimming?" Tom shakes his head. "No, thanks! Swimming is not my thing," he replies. Amy thinks for a moment. "Why don\'t we ride bikes instead?" she suggests. Tom\'s eyes light up. "Yes, I\'d love to! Let\'s go!" They ride around the park and find other friends playing football. "Do you want to join them later?" asks Tom. "Sure! That sounds fun!" says Amy.';
+
+  const READING_PASSAGE_4 =
+    'Yafei is new in Class 3. During break time, he stands alone near the classroom. Lisa walks over and says, "Hi, I\'m Lisa. Can I help you?" Yafei smiles and replies, "Yes, please. Where is the library?" Lisa shows him the way. Then she asks, "Do you want to join our reading group? We meet every Friday." Yafei nods excitedly. "Sure! Thank you!" Now Yafei has friends and loves reading stories with them.';
+
+  const READING_PASSAGE_5 =
+    'The students are preparing for a school play. "We need one more actor!" says Emma. "Let\'s ask Leo!" suggests Ben. Leo is drawing quietly in the corner. Emma walks to him and says, "Hey, Leo! Do you want to join us? You can be the tree!" Leo thinks and answers, "Hmm... Okay, I\'ll try!" He wears a green costume and holds paper leaves. During the show, Leo sways and makes everyone laugh. "You\'re amazing!" says Ben. Leo grins, "Teamwork is fun!"';
+
+  function buildReadingLevel14() {
+    const pick3 = (correct, pool) => shuffle([correct, ...shuffle(pool.filter((x) => x !== correct)).slice(0, 2)]);
+    return [
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 1 · 第1题",
+        topic: "主题：邀请新朋友",
+        subTopic: "阅读理解 1",
+        passage: READING_LUCY_PASSAGE_1,
+        prompt: "1. What game are the students playing?",
+        target: "Hopscotch",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("Hopscotch", ["Football", "Hopscotch", "Basketball"]),
+        sceneKey: "classroom",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 1 · 第2题",
+        topic: "主题：邀请新朋友",
+        subTopic: "阅读理解 1",
+        passage: READING_LUCY_PASSAGE_1,
+        prompt: "2. How does Lucy feel at the end?",
+        target: "Happy",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("Happy", ["Sad", "Happy", "Angry"]),
+        sceneKey: "classroom",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 2 · 第1题",
+        topic: "主题：尝试新活动",
+        subTopic: "阅读理解 2",
+        passage: READING_PASSAGE_2,
+        prompt: "1. What animal does Nikki imitate?",
+        target: "Monkey",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("Monkey", ["Bird", "Monkey", "Tiger"]),
+        sceneKey: "gym",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 2 · 第2题",
+        topic: "主题：尝试新活动",
+        subTopic: "阅读理解 2",
+        passage: READING_PASSAGE_2,
+        prompt: "2. Why does Sam feel happy?",
+        target: "He joins the activity.",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("He joins the activity.", ["He wins a game.", "He gets a new book.", "He joins the activity."]),
+        sceneKey: "gym",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 3 · 第1题",
+        topic: "主题：礼貌拒绝",
+        subTopic: "阅读理解 3",
+        passage: READING_PASSAGE_3,
+        prompt: "1. Why doesn\'t Tom want to swim?",
+        target: "He doesn\'t like swimming.",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("He doesn\'t like swimming.", ["He is tired.", "He doesn\'t like swimming.", "He has homework."]),
+        sceneKey: "playground",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 3 · 第2题",
+        topic: "主题：礼貌拒绝",
+        subTopic: "阅读理解 3",
+        passage: READING_PASSAGE_3,
+        prompt: "2. What do Amy and Tom do finally?",
+        target: "Ride bikes",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("Ride bikes", ["Go swimming", "Ride bikes", "Play football"]),
+        sceneKey: "playground",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 4 · 第1题",
+        topic: "主题：帮助新同学",
+        subTopic: "阅读理解 4",
+        passage: READING_PASSAGE_4,
+        prompt: "1. How does Lisa help Yafei?",
+        target: "She shows him the library.",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("She shows him the library.", ["She gives him a book.", "She shows him the library.", "She teaches him math."]),
+        sceneKey: "school",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 4 · 第2题",
+        topic: "主题：帮助新同学",
+        subTopic: "阅读理解 4",
+        passage: READING_PASSAGE_4,
+        prompt: "2. When does the reading group meet?",
+        target: "Every Friday",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("Every Friday", ["Every Monday", "Every Friday", "Every Sunday"]),
+        sceneKey: "school",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 5 · 第1题",
+        topic: "主题：团队合作",
+        subTopic: "阅读理解 5",
+        passage: READING_PASSAGE_5,
+        prompt: "1. What role does Leo play in the play?",
+        target: "A tree",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("A tree", ["A lion", "A tree", "A teacher"]),
+        sceneKey: "art",
+      },
+      {
+        kind: "RV1",
+        cat: "reading",
+        title: "阅读理解 5 · 第2题",
+        topic: "主题：团队合作",
+        subTopic: "阅读理解 5",
+        passage: READING_PASSAGE_5,
+        prompt: "2. Why does Leo feel happy?",
+        target: "He enjoys teamwork.",
+        optionLetters: ["A", "B", "C"],
+        options: pick3("He enjoys teamwork.", ["He wins a prize.", "He makes new friends.", "He enjoys teamwork."]),
+        sceneKey: "art",
+      },
+    ];
+  }
+
+  function buildClozeLevel15() {
+    const steps = [];
+    const shuffleAll = (arr) => shuffle(arr.slice());
+
+    function addWordBlock(articleNum, articleLabel, template, pool, answers, sceneKey) {
+      answers.forEach((target, i) => {
+        steps.push({
+          kind: "CLZ",
+          cat: "cloze",
+          title: "二 · 第" + articleNum + "篇 · 第" + (i + 1) + "空",
+          sectionTitle: "二、根据上下文，从括号里选择合适的单词填空。",
+          articleLabel: articleLabel,
+          passageTemplate: template,
+          blankIndex: i + 1,
+          prompt: "请选择第 " + (i + 1) + " 空的词语",
+          clozeType: "word",
+          options: shuffleAll(pool),
+          target: target,
+          sceneKey: sceneKey || "classroom",
+        });
+      });
+    }
+
+    function addDialogueBlock(articleNum, articleLabel, template, pool, answers, sceneKey) {
+      answers.forEach((target, i) => {
+        const opts = shuffleAll(pool);
+        steps.push({
+          kind: "CLZ",
+          cat: "cloze",
+          title: "二 · 第" + articleNum + "篇 · 第" + (i + 1) + "空",
+          sectionTitle: "二、根据上下文，从括号里选择合适的单词填空。",
+          articleLabel: articleLabel,
+          passageTemplate: template,
+          blankIndex: i + 1,
+          prompt: "请选择第 " + (i + 1) + " 空的句子",
+          clozeType: "dialogue",
+          optionLetters: ["A", "B", "C", "D"],
+          options: opts,
+          target: target,
+          sceneKey: sceneKey || "classroom",
+        });
+      });
+    }
+
+    const T1 =
+      "Lucy has a busy morning. {{1}}, she washes her face. {{2}}, she combs her hair. After that, she {{3}} her teeth. At 7:20, she eats {{4}}. It's time {{5}} go to school. \"Oh no! I'm late {{6}} class!\" she says.";
+    addWordBlock(1, "第一篇", T1, ["to", "Then", "First", "breakfast", "for", "brush"], ["First", "Then", "brush", "breakfast", "to", "for"], "classroom");
+
+    const T2 = 'Sam: Hi, Amy! We\'re playing football. {{1}}\nAmy: {{2}} I like football!\nSam: Great! You can kick the ball first.\nAmy: Thanks!';
+    const P2 = ["Let's play together!", "Sure! Come and join us!", "No, thanks!", "Do you want to try?"];
+    addDialogueBlock(2, "第二篇（对话）", T2, P2, ["Do you want to try?", "Sure! Come and join us!"], "playground");
+
+    const T3 =
+      "Tom's morning:\n{{1}}, he gets up at 7:00. {{2}}, he eats {{3}}. After that, he {{4}} his teeth. At 8:00, it's {{5}} for school. He says, \"Can I {{6}} you, Mum?\"";
+    addWordBlock(3, "第三篇", T3, ["join", "breakfast", "time", "brush", "Then", "First"], ["First", "Then", "breakfast", "brush", "time", "join"], "classroom");
+
+    const T4 =
+      'Nikki: Hi, Lucas! We\'re drawing pictures. {{1}}\nLucas: {{2}} Drawing is fun!\nNikki: Here\'s a red crayon for you.';
+    const P4 = ["What time is it?", "Yes, I'd love to!", "Do you want to join us?", "Let me help you."];
+    addDialogueBlock(4, "第四篇（对话）", T4, P4, ["Do you want to join us?", "Yes, I'd love to!"], "art");
+
+    const T5 =
+      "My morning routine:\n{{1}}, I get dressed. {{2}}, I wash my face. After that, I {{3}} my teeth. At 7:30, I eat {{4}}. It's time {{5}} go to school. I ask my friend, \"Can I {{6}} you?\"";
+    addWordBlock(5, "第五篇", T5, ["to", "join", "Then", "breakfast", "First", "brush"], ["First", "Then", "brush", "breakfast", "to", "join"], "school");
+
+    const T6 =
+      'Yiming: Look! We\'re jumping rope. {{1}}\nAlice: {{2}} I\'m good at it!\nYiming: Here\'s the rope. You can go first!';
+    const P6 = ["No, thanks!", "Sure! Come and play!", "Do you want to try?", "It's time for class."];
+    addDialogueBlock(6, "第六篇（对话）", T6, P6, ["Do you want to try?", "Sure! Come and play!"], "playground");
+
+    const T7 =
+      "Mike's morning:\n{{1}}, he combs his hair. {{2}}, he eats {{3}}. After that, he {{4}} his teeth. It's 8:00 now. It's time {{5}} school. He says, \"I'm late {{6}} the bus!\"";
+    addWordBlock(7, "第七篇", T7, ["for", "Then", "breakfast", "to", "First", "brush"], ["First", "Then", "breakfast", "brush", "to", "for"], "classroom");
+
+    const T8 =
+      "Lily: Hi, Ben! We're playing chess. {{1}}\nBen: {{2}} Chess is my favorite!\nLily: Here's a chair. Sit down!";
+    const P8 = ["Can I have a turn?", "Do you want to join us?", "Yes, thanks!", "That looks like fun!"];
+    addDialogueBlock(8, "第八篇（对话）", T8, P8, ["Do you want to join us?", "That looks like fun!"], "classroom");
+
+    const T9 =
+      "Anna's morning:\n{{1}}, she drinks milk. {{2}}, she eats {{3}}. After that, she {{4}} her teeth. It's 7:50. It's time {{5}} go to school. \"Oh no! It's time {{6}} class!\" she says.";
+    addWordBlock(9, "第九篇", T9, ["brush", "Then", "breakfast", "to", "First", "for"], ["First", "Then", "breakfast", "brush", "to", "for"], "classroom");
+
+    const T10 = 'Jack: Hi! I\'m new here. {{1}}\nLucy: {{2}} We\'re playing tag!\nJack: Yes! Tag is fun!';
+    const P10 = ["Sure! You can go next.", "Do you want to play?", "My name is Tina.", "No, thanks!"];
+    addDialogueBlock(10, "第十篇（对话）", T10, P10, ["Do you want to play?", "Sure! You can go next."], "playground");
+
+    return steps;
+  }
+
+  /** 第16关：试卷「七、找出不同类」共7题，答案序 ccaacbb；wordCategories 与 A/B/C 顺序一致 */
+  function buildLevel16Steps() {
+    const shortPrompt = "找找不同，哪个单词和其他不是一类的";
+    const rows = [
+      {
+        words: ["want", "come", "thing"],
+        target: "thing",
+        wordCategories: ["动词", "动词", "名词"],
+        wordZh: ["想要", "来", "东西"],
+      },
+      {
+        words: ["us", "her", "can"],
+        target: "can",
+        wordCategories: ["代词", "代词", "情态动词"],
+        wordZh: ["我们", "她", "可以"],
+      },
+      {
+        words: ["fun", "look", "join"],
+        target: "fun",
+        wordCategories: ["名词", "动词", "动词"],
+        wordZh: ["乐趣", "看", "加入"],
+      },
+      {
+        words: ["leg", "love", "like"],
+        target: "leg",
+        wordCategories: ["名词", "动词", "动词"],
+        wordZh: ["腿", "喜爱", "喜欢"],
+      },
+      {
+        words: ["try", "play", "together"],
+        target: "together",
+        wordCategories: ["动词", "动词", "副词"],
+        wordZh: ["尝试", "玩", "一起"],
+      },
+      {
+        words: ["have", "idea", "go"],
+        target: "idea",
+        wordCategories: ["动词", "名词", "动词"],
+        wordZh: ["有", "主意", "去"],
+      },
+      {
+        words: ["eat", "on", "ask"],
+        target: "on",
+        wordCategories: ["动词", "介词", "动词"],
+        wordZh: ["吃", "在……上", "问"],
+      },
+    ];
+    function expandReplyKey(raw) {
+      const s = String(raw || "").toLowerCase().replace(/[^a-e]/g, "");
+      if (!s.length) return "aaaaa";
+      const pad = s[s.length - 1];
+      return s.padEnd(5, pad).slice(0, 5);
+    }
+    function mapDialogueRows(pool, keyRaw, scenarios) {
+      const key = expandReplyKey(keyRaw);
+      return scenarios.map((r, i) => {
+        const ch = key[i] || "a";
+        const idx = ch.charCodeAt(0) - 97;
+        const pick = pool[Math.max(0, Math.min(4, idx))];
+        return {
+          scene: r.scene,
+          dialogue: r.dialogue,
+          target: pick.text,
+          targetLetter: pick.letter,
+          options: pool.map((p) => p.text),
+          optionLetters: pool.map((p) => p.letter),
+        };
+      });
+    }
+
+    const replyPool = [
+      { letter: "A", text: "Have a try." },
+      { letter: "B", text: "Do you want to try?" },
+      { letter: "C", text: "Can I join you?" },
+      { letter: "D", text: "You can go next!" },
+      { letter: "E", text: "Good idea." },
+    ];
+    const replyRows = mapDialogueRows(replyPool, "caedb", [
+      {
+        scene: "⚽ 踢足球",
+        dialogue: "几个男孩在踢球，你跑过来想加入。\n你：＿＿＿＿＿\n同伴：Yes, come and join us!",
+      },
+      {
+        scene: "🚗 玩玩具车",
+        dialogue: "男孩 A：Can I have a try?\n男孩 B（拿着玩具车）：Sure. ＿＿＿＿＿",
+      },
+      {
+        scene: "🪑 课桌旁",
+        dialogue: "女孩：Ask Alice to join us!\n男孩：＿＿＿＿＿",
+      },
+      {
+        scene: "🎯 跳房子",
+        dialogue: "男孩：Can I have a turn?\n女孩：Sure. ＿＿＿＿＿",
+      },
+      {
+        scene: "🪴 种花",
+        dialogue: "奶奶（或长辈）在摆弄花盆。\n长辈：＿＿＿＿＿\n女孩：Sure! That looks fun.",
+      },
+    ]);
+
+    const morningPool = [
+      { letter: "A", text: "Sure!" },
+      { letter: "B", text: "I have class at eight." },
+      { letter: "C", text: "We can go to school together." },
+      { letter: "D", text: "What time do you get up in the morning?" },
+      { letter: "E", text: "What time is it now?" },
+    ];
+    const morningPassage =
+      "Sam：Hi, Lily! ＿①＿\n" +
+      "Lily：I get up at 7:10 a.m. Then, I wash my face and brush my teeth. After that, I have breakfast.\n" +
+      "Sam：＿②＿\n" +
+      "Lily：It's half past seven now. ＿③＿\n" +
+      "Sam：＿④＿\n" +
+      "Lily：Sorry, I need to pack my schoolbag. Do you want to join the school club with me?\n" +
+      "Sam：＿⑤＿ What club is it?";
+    const morningRows = mapDialogueRows(morningPool, "debca", [
+      { scene: "", dialogue: "" },
+      { scene: "", dialogue: "" },
+      { scene: "", dialogue: "" },
+      { scene: "", dialogue: "" },
+      { scene: "", dialogue: "" },
+    ]);
+
+    return [
+      {
+        kind: "L16",
+        cat: "sentence",
+        title: "蛙蛙找不同",
+        prompt: shortPrompt,
+        subPrompt: "一大题共 7 小题，每行点击不同类的一项。",
+        optionLetters: ["A", "B", "C"],
+        rows: rows.map((row) => ({
+          target: row.target,
+          options: row.words.slice(),
+          wordCategories: row.wordCategories,
+          wordZh: row.wordZh,
+        })),
+      },
+      {
+        kind: "L16R",
+        cat: "sentence",
+        title: "我的蛙蛙会接话",
+        rows: replyRows,
+      },
+      {
+        kind: "L16R2",
+        cat: "sentence",
+        title: "我的蛙蛙会接话",
+        passage: morningPassage,
+        rows: morningRows,
+      },
+      {
+        kind: "L16",
+        cat: "sentence",
+        title: "蛙蛙找不同",
+        prompt: "找找不同，哪个单词和其他不是一类的",
+        subPrompt: "共 5 小题，每行点击不同类的一项。",
+        optionLetters: ["A", "B", "C"],
+        rows: [
+          {
+            target: "breakfast",
+            options: ["brush", "breakfast", "wash"],
+            wordCategories: ["动词", "名词", "动词"],
+            wordZh: ["刷", "早餐", "洗"],
+          },
+          {
+            target: "up",
+            options: ["teeth", "face", "up"],
+            wordCategories: ["名词", "名词", "副词"],
+            wordZh: ["牙齿", "脸", "向上"],
+          },
+          {
+            target: "have",
+            options: ["have", "my", "your"],
+            wordCategories: ["动词", "代词", "代词"],
+            wordZh: ["有", "我的", "你的"],
+          },
+          {
+            target: "hair",
+            options: ["comb", "hair", "get"],
+            wordCategories: ["动词", "名词", "动词"],
+            wordZh: ["梳", "头发", "得到"],
+          },
+          {
+            target: "morning",
+            options: ["before", "after", "morning"],
+            wordCategories: ["介词", "介词", "名词"],
+            wordZh: ["在…之前", "在…之后", "早晨"],
+          },
+        ],
+      },
+      {
+        kind: "L16",
+        cat: "sentence",
+        title: "蛙蛙能说一句完整的话",
+        prompt: "选择最合适的词语，把句子说完整。",
+        subPrompt: "共 5 小题，每行点击正确的一项。",
+        optionLetters: ["A", "B", "C"],
+        rows: [
+          {
+            cue: "—What time is it?\n—＿＿＿ eight o'clock.",
+            target: "It's",
+            options: ["Its", "It's", "They"],
+            wordCategories: ["代词/误写", "缩写", "代词"],
+            wordZh: ["它的(误)", "它是", "他们"],
+          },
+          {
+            cue: "It's time ＿＿＿ get up.",
+            target: "to",
+            options: ["to", "for", "of"],
+            wordCategories: ["不定式符号", "介词", "介词"],
+            wordZh: ["去(不定式)", "为了", "…的"],
+          },
+          {
+            cue: "I ＿＿＿ home late.",
+            target: "go",
+            options: ["goes", "have", "go"],
+            wordCategories: ["动词三单", "动词", "动词原形"],
+            wordZh: ["去(三单)", "有", "去"],
+          },
+          {
+            cue: "I go to school in a ＿＿＿.",
+            target: "hurry",
+            options: ["happy", "hurry", "hello"],
+            wordCategories: ["形容词", "名词", "感叹词"],
+            wordZh: ["快乐的", "匆忙", "你好"],
+          },
+          {
+            cue: "It's time ＿＿＿ bed.",
+            target: "for",
+            options: ["with", "to", "for"],
+            wordCategories: ["介词", "不定式符号", "介词"],
+            wordZh: ["和…一起", "去", "为了"],
+          },
+        ],
+      },
+      {
+        kind: "L16TF",
+        cat: "sentence",
+        title: "蛙蛙能懂对话，啥说了啥没说",
+        subPrompt: "阅读对话，判断句子与对话是否相符：相符选 T，不相符选 F。",
+        passage:
+          "Mum: Good morning, Peter. Get up, please.\n" +
+          "Peter: Good morning, Mum. What time is it now?\n" +
+          "Mum: It's seven thirty.\n" +
+          "Peter: Oh, no! I'm late for school. I have no time for breakfast.\n" +
+          "Mum: You should go to bed early (提早) tonight (今晚).\n" +
+          "Peter: You are right. I have to go. Bye, Mum!\n" +
+          "Mum: Bye, Peter.",
+        rows: [
+          { statement: "It is six o'clock now.", target: "F" },
+          { statement: "It's time to go to bed.", target: "F" },
+          { statement: "Peter is late for school.", target: "T" },
+          { statement: "Peter gets up early today.", target: "F" },
+          { statement: "Peter has breakfast this morning.", target: "F" },
+        ],
+      },
+    ];
+  }
+
+  function revealOddOneOutRowMeta(row, gridEl) {
+    if (!gridEl || !row.wordCategories || row.wordCategories.length === 0) return;
+    const zhList = row.wordZh || [];
+    gridEl.querySelectorAll(".odd-one-out-meta").forEach((meta, idx) => {
+      const pos = row.wordCategories[idx];
+      const zh = zhList[idx];
+      if (pos == null) return;
+      const posEl = meta.querySelector(".odd-one-out-pos");
+      const zhEl = meta.querySelector(".odd-one-out-zh");
+      if (posEl) posEl.textContent = pos;
+      if (zhEl) zhEl.textContent = zh != null && String(zh).trim() !== "" ? zh : "—";
+      meta.classList.remove("odd-one-out-meta--hidden");
+    });
+  }
+
   function buildLevels() {
     const levels = [];
     const joinWord = WORDS.find((w) => w.en === "join");
-    for (let lv = 1; lv <= 11; lv++) {
+    for (let lv = 1; lv <= MAX_LEVEL; lv++) {
       const [w1, w2] = getWordPair(lv);
       let steps;
       if (lv === 7 || lv === 8) {
         steps = buildReviewLevelSteps(lv, w1, w2);
+      } else if (lv === 16) {
+        steps = buildLevel16Steps();
+      } else if (lv === 15) {
+        steps = buildClozeLevel15();
+      } else if (lv === 14) {
+        steps = buildReadingLevel14();
+      } else if (lv === 12) {
+        steps = buildStoryLevel12();
       } else if (lv === 11) {
         steps = buildDialogueSortLevel11();
       } else if (lv >= 9) {
@@ -871,6 +1573,16 @@
       if (lv === 1 && joinWord) {
         steps.push({ kind: "M3", cat: "word", title: "加练默写 · join", word: joinWord });
       }
+      if (lv === 13 && steps[4]) {
+        steps[4] = {
+          kind: "RV1",
+          cat: "sentence",
+          title: "翻译题 · 5",
+          prompt: "我能加入你们吗 翻译成英文",
+          target: "Can I join you?",
+          options: shuffle(["Can I join you?", "Do you want to join us?", "You can go first.", "Let me help you."]),
+        };
+      }
       levels.push({ id: lv, steps });
     }
     return levels;
@@ -878,21 +1590,46 @@
 
   const LEVELS = buildLevels();
 
+  (function validateLevelsBuilt() {
+    if (LEVELS.length !== MAX_LEVEL) {
+      console.error("[frog-king] 关卡数量异常：", LEVELS.length, "预期", MAX_LEVEL);
+    }
+    LEVELS.forEach((L, i) => {
+      if (!L || !L.steps || L.steps.length === 0) {
+        console.error("[frog-king] 第 " + (L && L.id ? L.id : i + 1) + " 关没有环节数据");
+      }
+    });
+  })();
+
   const root = document.getElementById("challenge-root");
   const btnContinue = document.getElementById("btn-continue");
   const btnRetryLevel = document.getElementById("btn-retry-level");
   const btnLevelPicker = document.getElementById("btn-level-picker");
   const btnLeaderboard = document.getElementById("btn-leaderboard");
+  const btnSetPin = document.getElementById("btn-set-pin");
+  const btnLogout = document.getElementById("btn-logout");
   const btnCloseModal = document.getElementById("btn-close-modal");
   const modal = document.getElementById("modal-overlay");
   const levelGrid = document.getElementById("level-grid");
   const stoneRoute = document.getElementById("stone-route");
   const nameModal = document.getElementById("name-modal-overlay");
   const nameInput = document.getElementById("name-input");
-  const btnSaveName = document.getElementById("btn-save-name");
+  const pinInput = document.getElementById("pin-input");
+  const btnLoginName = document.getElementById("btn-login-name");
+  const btnRegisterName = document.getElementById("btn-register-name");
+  const btnEnterNoPin = document.getElementById("btn-enter-no-pin");
   const leaderboardModal = document.getElementById("leaderboard-modal-overlay");
+  const leaderboardTitleEl = document.getElementById("leaderboard-title");
   const leaderboardList = document.getElementById("leaderboard-list");
+  const teacherPanel = document.getElementById("teacher-panel");
+  const teacherSearchInput = document.getElementById("teacher-search");
+  const teacherList = document.getElementById("teacher-list");
+  const btnTeacherRefresh = document.getElementById("btn-teacher-refresh");
   const btnCloseLeaderboard = document.getElementById("btn-close-leaderboard");
+  const setPinModal = document.getElementById("set-pin-modal-overlay");
+  const setPinInput = document.getElementById("set-pin-input");
+  const btnSavePin = document.getElementById("btn-save-pin");
+  const btnCloseSetPin = document.getElementById("btn-close-set-pin");
   const cloudConfigPanel = document.getElementById("cloud-config-panel");
   const cloudUrlInput = document.getElementById("cloud-url-input");
   const cloudKeyInput = document.getElementById("cloud-key-input");
@@ -907,8 +1644,20 @@
   const frogActor = document.getElementById("frog-actor");
   const frogOutfit = document.getElementById("frog-outfit");
   const frogNameTag = document.getElementById("frog-name-tag");
+  const frogPartNeck = document.getElementById("frog-part-neck");
+  const frogPartBody = document.getElementById("frog-part-body");
+  const frogPartLeftArm = document.getElementById("frog-part-left-arm");
+  const frogPartLeftHand = document.getElementById("frog-part-left-hand");
+  const frogPartRightArm = document.getElementById("frog-part-right-arm");
+  const frogPartRightHand = document.getElementById("frog-part-right-hand");
+  const frogPartTorso = document.getElementById("frog-part-torso");
+  const frogPartLeftLeg = document.getElementById("frog-part-left-leg");
+  const frogPartLeftFoot = document.getElementById("frog-part-left-foot");
+  const frogPartRightLeg = document.getElementById("frog-part-right-leg");
+  const frogPartRightFoot = document.getElementById("frog-part-right-foot");
   const praisePop = document.getElementById("frog-bubble");
   const eyeFlash = document.getElementById("eye-flash");
+  const characterArea = document.getElementById("character-area");
   const sparkleBurst = document.getElementById("sparkle-burst");
   const levelCelebration = document.getElementById("level-celebration");
   const levelCelebrationText = document.getElementById("level-celebration-text");
@@ -918,17 +1667,54 @@
   let playerName = loadPlayerName();
   let leaderboard = loadLeaderboard();
   let cloudSyncTimer = null;
+  let cloudStateSyncTimer = null;
   let cloudRefreshInFlight = false;
   let currentStepResult = null;
   let autoAdvancing = false;
   let autoAdvanceTimer = null;
   let autoRetryTimer = null;
+  /** 当前环节累计答错次数；第二次答错则重闯本关（任意关卡） */
+  let wrongAttemptsOnCurrentStep = 0;
+  let lastRenderedLevel = null;
+  let levelStartCelebrationShown = null;
+  let teacherAccessUnlocked = false;
+  let teacherTapCount = 0;
+  let teacherTapTimer = null;
+  let teacherAccountsCache = [];
+  const TEACHER_ENTRY_CODE = "frog2026";
   const OUTFITS = ["🎀", "🕶️", "🎓", "🧣", "🧢", "🥽", "🎧", "💚", "🌟", "🪄"];
+  const OUTFIT_CLASS_BY_ICON = {
+    "🎀": "frog-outfit--bow",
+    "🕶️": "frog-outfit--sunglasses",
+    "🎓": "frog-outfit--cap",
+    "🧣": "frog-outfit--scarf",
+    "🧢": "frog-outfit--hat",
+    "🥽": "frog-outfit--goggles",
+    "🎧": "frog-outfit--headphones",
+    "💚": "frog-outfit--badge",
+    "🌟": "frog-outfit--star",
+    "🪄": "frog-outfit--wand",
+  };
   const ZH_BY_EN = {
     "Do you want to join us?": "你想加入我们吗？",
     "Do you want to try?": "你想试试吗？",
     "I'd love to!": "我很乐意！",
+    "Yes, I'd love to! Thanks!": "是的，我很乐意！谢谢！",
+    "Sure! Come and play!": "当然！来一起玩吧！",
+    "Let's play together!": "我们一起玩吧！",
+    "That looks like fun. Can I try?": "看起来很有趣。我可以试试吗？",
+    "Hi, I'm Yiming. Do you want to join us?": "嗨，我叫一鸣。你想加入我们吗？",
+    "Let's eat together!": "我们一起吃吧！",
+    "Sure! That looks fun.": "当然！这看起来很好玩。",
+    "Why don't you sit on my back?": "为什么不坐在我背上？",
+    "Let me help you.": "让我来帮你。",
+    "My name is Alice.": "我叫爱丽丝。",
+    "Come on! Have a try!": "来吧！试试看！",
+    "Smile and laugh under the sun.": "在阳光下微笑和大笑。",
+    "Skip and hop, jump and run.": "跳绳蹦跳，跳跃奔跑。",
+    "Come and join us, everyone!": "大家快来加入我们！",
     "No thanks... football is just not my thing.": "不用了，足球不是我的菜。",
+    "No, thanks! Football is just not my thing.": "不用了，谢谢！我不喜欢足球。",
     "Can I join you?": "我能加入你们吗？",
     "Can I have a turn?": "我能玩一次吗？",
     "Come and play!": "来玩吧！",
@@ -941,6 +1727,12 @@
   function withZhInLevel11(text) {
     const raw = String(text || "").trim();
     if (state.currentLevel !== 11 || !raw) return text;
+    return withZhCaption(raw);
+  }
+
+  function withZhCaption(text) {
+    const raw = String(text || "").trim();
+    if (!raw) return text;
     const zh = ZH_BY_EN[raw];
     return zh ? raw + "（" + zh + "）" : text;
   }
@@ -984,6 +1776,280 @@
     return leaderboard.find((x) => String(x.name || "").trim().toLowerCase() === key) || null;
   }
 
+  function findLeaderboardRowByPlayerId(id) {
+    const key = String(id || "").trim();
+    if (!key) return null;
+    return leaderboard.find((x) => String(x.playerId || "").trim() === key) || null;
+  }
+
+  function normalizeUserName(raw) {
+    return String(raw || "").trim().slice(0, 20);
+  }
+
+  /** 该用户名登录时解锁全部关卡（不区分大小写） */
+  const TEACHER_FULL_UNLOCK_USERNAME = "iamzhuanglaoshi";
+
+  function isTeacherFullUnlockUser(name) {
+    return normalizeUserName(name).toLowerCase() === TEACHER_FULL_UNLOCK_USERNAME;
+  }
+
+  function applyTeacherFullUnlockIfNeeded() {
+    if (!isTeacherFullUnlockUser(playerName)) return;
+    state.unlockedLevel = MAX_LEVEL;
+    saveState(state);
+    renderRoute();
+    updateHud();
+  }
+
+  function normalizePin(raw) {
+    return String(raw || "").replace(/\D/g, "").slice(0, 4);
+  }
+
+  function isValidPin(pin) {
+    return /^\d{4}$/.test(String(pin || ""));
+  }
+
+  function buildAccountHelpText() {
+    return (
+      "账号系统尚未初始化，请在 Supabase 执行以下 SQL 一次：\n\n" +
+      "create table if not exists public.frog_accounts (\n" +
+      "  username text primary key,\n" +
+      "  pin text not null default '',\n" +
+      "  player_id text not null,\n" +
+      "  created_at timestamptz default now(),\n" +
+      "  updated_at timestamptz default now()\n" +
+      ");\n" +
+      "alter table public.frog_accounts enable row level security;\n" +
+      "drop policy if exists frog_accounts_rw on public.frog_accounts;\n" +
+      "create policy frog_accounts_rw on public.frog_accounts\n" +
+      "for all using (true) with check (true);\n\n" +
+      "create table if not exists public.frog_player_state (\n" +
+      "  player_id text primary key,\n" +
+      "  name text not null default '',\n" +
+      "  stars integer not null default 0,\n" +
+      "  crowns integer not null default 0,\n" +
+      "  unlocked_level integer not null default 1,\n" +
+      "  current_level integer not null default 1,\n" +
+      "  current_step_index integer not null default 0,\n" +
+      "  updated_at timestamptz default now()\n" +
+      ");\n" +
+      "alter table public.frog_player_state enable row level security;\n" +
+      "drop policy if exists frog_player_state_rw on public.frog_player_state;\n" +
+      "create policy frog_player_state_rw on public.frog_player_state\n" +
+      "for all using (true) with check (true);"
+    );
+  }
+
+  async function fetchCloudAccount(username) {
+    if (!CLOUD_ENABLED) return { ok: false, reason: "cloud_off" };
+    const url =
+      SUPABASE_URL +
+      "/rest/v1/frog_accounts?select=username,pin,player_id&username=eq." +
+      encodeURIComponent(username) +
+      "&limit=1";
+    const res = await fetch(url, { headers: cloudHeaders() });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      if (txt.includes("frog_accounts") || txt.includes("PGRST205") || txt.includes("42P01")) {
+        return { ok: false, reason: "table_missing", detail: txt };
+      }
+      return { ok: false, reason: "cloud_error", detail: txt };
+    }
+    const data = await res.json();
+    const row = Array.isArray(data) && data[0] ? data[0] : null;
+    if (!row) return { ok: false, reason: "not_found" };
+    return {
+      ok: true,
+      row: {
+        username: String(row.username || "").trim(),
+        pin: String(row.pin || "").trim(),
+        playerId: String(row.player_id || "").trim(),
+      },
+    };
+  }
+
+  async function createCloudAccount(username, pin, id) {
+    if (!CLOUD_ENABLED) return { ok: false, reason: "cloud_off" };
+    const url = SUPABASE_URL + "/rest/v1/frog_accounts";
+    const body = [{ username, pin, player_id: id, updated_at: new Date().toISOString() }];
+    const res = await fetch(url, {
+      method: "POST",
+      headers: cloudHeaders({ Prefer: "return=minimal" }),
+      body: JSON.stringify(body),
+    });
+    if (res.ok) return { ok: true };
+    const txt = await res.text().catch(() => "");
+    if (txt.includes("duplicate key") || txt.includes("23505")) return { ok: false, reason: "exists", detail: txt };
+    if (txt.includes("frog_accounts") || txt.includes("PGRST205") || txt.includes("42P01")) {
+      return { ok: false, reason: "table_missing", detail: txt };
+    }
+    return { ok: false, reason: "cloud_error", detail: txt };
+  }
+
+  async function upsertCloudAccount(username, pin, id) {
+    if (!CLOUD_ENABLED) return { ok: false, reason: "cloud_off" };
+    const url = SUPABASE_URL + "/rest/v1/frog_accounts?on_conflict=username";
+    const body = [{ username, pin, player_id: id, updated_at: new Date().toISOString() }];
+    const res = await fetch(url, {
+      method: "POST",
+      headers: cloudHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify(body),
+    });
+    if (res.ok) return { ok: true };
+    const txt = await res.text().catch(() => "");
+    if (txt.includes("frog_accounts") || txt.includes("PGRST205") || txt.includes("42P01")) {
+      return { ok: false, reason: "table_missing", detail: txt };
+    }
+    return { ok: false, reason: "cloud_error", detail: txt };
+  }
+
+  async function fetchCloudAccountsAll() {
+    if (!CLOUD_ENABLED) return { ok: false, reason: "cloud_off" };
+    const url =
+      SUPABASE_URL +
+      "/rest/v1/frog_accounts?select=username,pin,player_id,updated_at&order=updated_at.desc&limit=500";
+    const res = await fetch(url, { headers: cloudHeaders() });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      if (txt.includes("frog_accounts") || txt.includes("PGRST205") || txt.includes("42P01")) {
+        return { ok: false, reason: "table_missing", detail: txt };
+      }
+      return { ok: false, reason: "cloud_error", detail: txt };
+    }
+    const data = await res.json();
+    if (!Array.isArray(data)) return { ok: true, rows: [] };
+    const rows = data.map((x) => ({
+      username: String(x.username || "").trim(),
+      pin: String(x.pin || "").trim(),
+      playerId: String(x.player_id || "").trim(),
+      updatedAt: String(x.updated_at || ""),
+    })).filter((x) => x.username);
+    return { ok: true, rows };
+  }
+
+  function normalizeProgressState(raw) {
+    const unlocked = Math.min(MAX_LEVEL, Math.max(1, Number(raw && raw.unlockedLevel) || 1));
+    const current = Math.min(unlocked, Math.max(1, Number(raw && raw.currentLevel) || 1));
+    const step = Math.max(0, Number(raw && raw.currentStepIndex) || 0);
+    return {
+      stars: Math.max(0, Number(raw && raw.stars) || 0),
+      crowns: Math.max(0, Number(raw && raw.crowns) || 0),
+      unlockedLevel: unlocked,
+      currentLevel: current,
+      currentStepIndex: step,
+    };
+  }
+
+  function buildCloudPlayerStatePayload() {
+    const normalized = normalizeProgressState(state);
+    return {
+      player_id: playerId,
+      name: playerName || "",
+      stars: normalized.stars,
+      crowns: normalized.crowns,
+      unlocked_level: normalized.unlockedLevel,
+      current_level: normalized.currentLevel,
+      current_step_index: normalized.currentStepIndex,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  async function fetchCloudPlayerState(id) {
+    if (!CLOUD_ENABLED) return { ok: false, reason: "cloud_off" };
+    const pid = String(id || "").trim();
+    if (!pid) return { ok: false, reason: "missing_player_id" };
+    const url =
+      SUPABASE_URL +
+      "/rest/v1/frog_player_state?select=player_id,stars,crowns,unlocked_level,current_level,current_step_index,updated_at&player_id=eq." +
+      encodeURIComponent(pid) +
+      "&limit=1";
+    const res = await fetch(url, { headers: cloudHeaders() });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      if (txt.includes("frog_player_state") || txt.includes("PGRST205") || txt.includes("42P01") || txt.includes("42703")) {
+        return { ok: false, reason: "table_missing", detail: txt };
+      }
+      return { ok: false, reason: "cloud_error", detail: txt };
+    }
+    const data = await res.json();
+    const row = Array.isArray(data) && data[0] ? data[0] : null;
+    if (!row) return { ok: false, reason: "not_found" };
+    return {
+      ok: true,
+      row: normalizeProgressState({
+        stars: row.stars,
+        crowns: row.crowns,
+        unlockedLevel: row.unlocked_level,
+        currentLevel: row.current_level,
+        currentStepIndex: row.current_step_index,
+      }),
+    };
+  }
+
+  async function upsertCloudPlayerState(payload) {
+    if (!CLOUD_ENABLED) return { ok: false, reason: "cloud_off" };
+    const body = payload || buildCloudPlayerStatePayload();
+    const url = SUPABASE_URL + "/rest/v1/frog_player_state?on_conflict=player_id";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: cloudHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify([body]),
+    });
+    if (res.ok) return { ok: true };
+    const txt = await res.text().catch(() => "");
+    if (txt.includes("frog_player_state") || txt.includes("PGRST205") || txt.includes("42P01") || txt.includes("42703")) {
+      return { ok: false, reason: "table_missing", detail: txt };
+    }
+    return { ok: false, reason: "cloud_error", detail: txt };
+  }
+
+  function scheduleCloudPlayerStateSync() {
+    if (!CLOUD_ENABLED || !playerId || !playerName) return;
+    if (cloudStateSyncTimer) clearTimeout(cloudStateSyncTimer);
+    cloudStateSyncTimer = setTimeout(async () => {
+      cloudStateSyncTimer = null;
+      try {
+        await upsertCloudPlayerState();
+      } catch (_) {}
+    }, 600);
+  }
+
+  async function hydrateProgressFromCloudByPlayerId(id) {
+    const res = await fetchCloudPlayerState(id);
+    if (!res.ok) return res;
+    const cloudState = normalizeProgressState(res.row);
+    const local = normalizeProgressState(state);
+    state.stars = Math.max(local.stars, cloudState.stars);
+    state.crowns = Math.max(local.crowns, cloudState.crowns);
+    state.unlockedLevel = Math.max(local.unlockedLevel, cloudState.unlockedLevel);
+    if (cloudState.currentLevel > local.currentLevel) {
+      state.currentLevel = cloudState.currentLevel;
+      state.currentStepIndex = cloudState.currentStepIndex;
+    } else if (cloudState.currentLevel === local.currentLevel) {
+      state.currentLevel = local.currentLevel;
+      state.currentStepIndex = Math.max(local.currentStepIndex, cloudState.currentStepIndex);
+    } else {
+      state.currentLevel = local.currentLevel;
+      state.currentStepIndex = local.currentStepIndex;
+    }
+    state.currentLevel = Math.min(state.unlockedLevel, Math.max(1, state.currentLevel));
+    const levelObj = LEVELS[state.currentLevel - 1];
+    const stepMax = levelObj && levelObj.steps ? Math.max(0, levelObj.steps.length - 1) : 0;
+    state.currentStepIndex = Math.min(stepMax, Math.max(0, state.currentStepIndex));
+    saveState(state);
+    return { ok: true };
+  }
+
+  function hydrateStateFromBoundAccount() {
+    const byId = findLeaderboardRowByPlayerId(playerId);
+    const byName = findLeaderboardRowByName(playerName);
+    const row = byId || byName;
+    if (!row) return;
+    state.stars = Math.max(state.stars, row.stars || 0);
+    state.crowns = Math.max(state.crowns, row.crowns || 0);
+    saveState(state);
+  }
+
   async function bindIdentityByName(name) {
     const normalized = String(name || "").trim();
     if (!normalized) return { ok: false, reason: "empty" };
@@ -992,10 +2058,8 @@
     }
     const sameName = findLeaderboardRowByName(normalized);
     if (sameName) {
-      if (sameName.playerId && sameName.playerId !== playerId) {
-        return { ok: false, reason: "taken" };
-      }
       if (sameName.playerId) {
+        // 同名即视为同一账号：自动切换到该账号 playerId，避免同设备重登被拦截。
         playerId = sameName.playerId;
         savePlayerId(playerId);
       }
@@ -1118,6 +2182,82 @@
     });
   }
 
+  function toggleTeacherPanel(show) {
+    if (!teacherPanel) return;
+    teacherPanel.classList.toggle("teacher-panel--hidden", !show);
+  }
+
+  function renderTeacherAccounts() {
+    if (!teacherList) return;
+    teacherList.innerHTML = "";
+    const keyword = (teacherSearchInput && teacherSearchInput.value ? teacherSearchInput.value : "").trim().toLowerCase();
+    const rows = teacherAccountsCache.filter((row) => {
+      if (!keyword) return true;
+      return row.username.toLowerCase().includes(keyword);
+    });
+    if (!rows.length) {
+      const empty = el("div", "teacher-row", "");
+      empty.appendChild(el("div", "teacher-row__name", "暂无匹配账号"));
+      empty.appendChild(el("div", "teacher-row__pin", "-"));
+      teacherList.appendChild(empty);
+      return;
+    }
+    rows.forEach((row) => {
+      const item = el("div", "teacher-row", "");
+      const left = el("div", "teacher-row__name", row.username);
+      const right = el("div", "teacher-row__pin", row.pin || "（未设置）");
+      item.appendChild(left);
+      item.appendChild(right);
+      teacherList.appendChild(item);
+    });
+  }
+
+  async function loadTeacherAccounts() {
+    if (!teacherAccessUnlocked) return;
+    const res = await fetchCloudAccountsAll();
+    if (!res.ok) {
+      if (res.reason === "cloud_off") {
+        alert("未连接云端，无法读取账号密码。");
+      } else if (res.reason === "table_missing") {
+        alert(buildAccountHelpText());
+      } else {
+        alert("读取账号列表失败，请稍后重试。");
+      }
+      return;
+    }
+    teacherAccountsCache = res.rows || [];
+    renderTeacherAccounts();
+  }
+
+  async function unlockTeacherPanel() {
+    const entered = window.prompt("教师入口：请输入口令", "");
+    if (entered === null) return;
+    if (String(entered).trim() !== TEACHER_ENTRY_CODE) {
+      alert("口令不正确。");
+      return;
+    }
+    teacherAccessUnlocked = true;
+    toggleTeacherPanel(true);
+    await loadTeacherAccounts();
+  }
+
+  function onLeaderboardTitleTap() {
+    teacherTapCount += 1;
+    if (teacherTapTimer) clearTimeout(teacherTapTimer);
+    teacherTapTimer = setTimeout(() => {
+      teacherTapCount = 0;
+      teacherTapTimer = null;
+    }, 1200);
+    if (teacherTapCount >= 5) {
+      teacherTapCount = 0;
+      if (teacherTapTimer) {
+        clearTimeout(teacherTapTimer);
+        teacherTapTimer = null;
+      }
+      unlockTeacherPanel();
+    }
+  }
+
   const stepStatus = {
     hadWrong: false,
     isCorrect: false,
@@ -1135,6 +2275,20 @@
     markWrong() {
       if (this.graded) return;
       this.hadWrong = true;
+      wrongAttemptsOnCurrentStep += 1;
+      const maxWrongBeforeRestart = state.currentLevel === 15 ? 3 : 2;
+      if (wrongAttemptsOnCurrentStep >= maxWrongBeforeRestart) {
+        wrongAttemptsOnCurrentStep = 0;
+        if (autoRetryTimer) {
+          clearTimeout(autoRetryTimer);
+          autoRetryTimer = null;
+        }
+        showRetryEncouragement();
+        syncActionBar();
+        restartCurrentLevelAfterTooManyWrongs();
+        return;
+      }
+      showRetryEncouragement();
       syncActionBar();
       if (autoRetryTimer) return;
       autoRetryTimer = setTimeout(() => {
@@ -1145,12 +2299,23 @@
     markCorrect() {
       if (this.isCorrect) return;
       this.isCorrect = true;
+      wrongAttemptsOnCurrentStep = 0;
       const step = currentStep();
-      const speakText = getAutoSpeakText(step);
-      if (speakText) {
-        playEnglishAudioGuaranteed(speakText);
+      if (state.currentLevel === 15 && step && step.kind === "CLZ") {
+        showLevel15ClozeGeniusPraise();
+      } else if (state.currentLevel === 14 && step && step.kind === "RV1") {
+        speakChineseTTS("太棒了");
+        if (!this.hadWrong && !this.graded) showPraise();
+      } else if (state.currentLevel === 16 && step && isLevel16PraiseStepKind(step.kind)) {
+        speakLevel16StepPass();
+        if (!this.hadWrong && !this.graded) showPraise();
+      } else {
+        const speakText = getAutoSpeakText(step);
+        if (speakText) {
+          playEnglishAudioGuaranteed(speakText);
+        }
+        if (!this.hadWrong && !this.graded) showPraise();
       }
-      if (!this.hadWrong && !this.graded) showPraise();
       syncActionBar();
       if (!this.hadWrong && !this.graded && !autoAdvancing) {
         autoAdvancing = true;
@@ -1186,11 +2351,18 @@
 
   function getAutoSpeakText(step) {
     if (!step) return "";
+    if (step.kind === "CLZ") return "";
+    if (state.currentLevel === 14 && step.passage) return "";
+    if (state.currentLevel === 12) {
+      const correctOption = step.target || "";
+      return /[a-zA-Z]/.test(correctOption) ? correctOption : "";
+    }
     if (step.autoSpeak) return step.autoSpeak;
     if (step.kind === "TIP") return "";
     if (step.kind === "P1" || step.kind === "P2") return "";
     if (step.kind === "S2" || step.kind === "RV4" || step.kind === "A4") return "";
     if (step.kind === "A5") return "";
+    if (step.kind === "L16" || step.kind === "L16R" || step.kind === "L16R2" || step.kind === "L16TF") return "";
     const englishFromPrompt = () => {
       const m = String(step.prompt || "").match(/“([^”]+)”/);
       if (m && /[a-zA-Z]/.test(m[1])) return m[1];
@@ -1209,6 +2381,14 @@
     return "";
   }
 
+  function maybeAutoSpeakLevel12Question(step) {
+    if (!step || state.currentLevel !== 12) return;
+    if (!(step.kind === "VQ" || step.kind === "RV1")) return;
+    const question = String(step.prompt || "");
+    if (!/[a-zA-Z]/.test(question)) return;
+    playEnglishAudioGuaranteed(question);
+  }
+
   function updateHud() {
     const lv = currentLevelObj();
     const total = lv ? lv.steps.length : 16;
@@ -1221,10 +2401,43 @@
     starCountEl.textContent = String(state.stars);
     crownCountEl.textContent = String(state.crowns);
     const outfitCount = Math.max(0, state.currentLevel - 1);
-    frogOutfit.textContent = outfitCount > 0 ? OUTFITS[(outfitCount - 1) % OUTFITS.length] : "";
+    let outfit = outfitCount > 0 ? OUTFITS[(outfitCount - 1) % OUTFITS.length] : "";
+    if (state.currentLevel >= 15) outfit = "";
+    frogOutfit.textContent = outfit;
+    applyOutfitPlacement(outfit);
+    updateFrogBodyGrowth(state.currentLevel);
+    if (frogActor) frogActor.classList.toggle("frog-actor--level16", state.currentLevel === 16);
     if (frogNameTag) frogNameTag.textContent = playerName || "小青蛙";
     upsertCurrentPlayerScore();
     renderRoute();
+  }
+
+  function applyOutfitPlacement(outfit) {
+    if (!frogOutfit) return;
+    Object.keys(OUTFIT_CLASS_BY_ICON).forEach((icon) => {
+      frogOutfit.classList.remove(OUTFIT_CLASS_BY_ICON[icon]);
+    });
+    if (!outfit || !OUTFIT_CLASS_BY_ICON[outfit]) return;
+    frogOutfit.classList.add(OUTFIT_CLASS_BY_ICON[outfit]);
+  }
+
+  function toggleFrogPart(node, on) {
+    if (!node) return;
+    node.classList.toggle("frog-part--on", !!on);
+  }
+
+  function updateFrogBodyGrowth(level) {
+    toggleFrogPart(frogPartBody, level >= 10);
+    toggleFrogPart(frogPartNeck, level >= 11);
+    toggleFrogPart(frogPartLeftArm, level >= 11);
+    toggleFrogPart(frogPartLeftHand, level >= 11);
+    toggleFrogPart(frogPartRightArm, level >= 11);
+    toggleFrogPart(frogPartRightHand, level >= 12);
+    toggleFrogPart(frogPartTorso, level >= 13);
+    toggleFrogPart(frogPartLeftLeg, level >= 13);
+    toggleFrogPart(frogPartLeftFoot, level >= 13);
+    toggleFrogPart(frogPartRightLeg, level >= 14);
+    toggleFrogPart(frogPartRightFoot, level >= 14);
   }
 
   function syncActionBar() {
@@ -1239,6 +2452,7 @@
     playDingDong();
     frogActor.dataset.mood = "nod";
     sparkleBurst.classList.add("sparkle-burst--on");
+    praisePop.textContent = PRAISE_LINES[Math.floor(Math.random() * PRAISE_LINES.length)];
     praisePop.classList.remove("praise-pop--hidden");
     setTimeout(() => {
       frogActor.dataset.mood = "idle";
@@ -1247,12 +2461,125 @@
     }, 900);
   }
 
-  function showLevelCelebration(nextLevel, done) {
+  function showLevel15ClozeGeniusPraise() {
+    playDingDong();
+    frogActor.dataset.mood = "nod";
+    sparkleBurst.classList.add("sparkle-burst--on");
+    praisePop.textContent = "你简直是英语天才";
+    praisePop.classList.remove("praise-pop--hidden");
+    speakChineseTTS("英语天才");
+    setTimeout(() => {
+      frogActor.dataset.mood = "idle";
+      sparkleBurst.classList.remove("sparkle-burst--on");
+      praisePop.classList.add("praise-pop--hidden");
+    }, 1100);
+  }
+
+  function restartCurrentLevelAfterTooManyWrongs() {
+    state.currentStepIndex = 0;
+    saveState(state);
+    const tip =
+      state.currentLevel === 15 ? "🎆 错三次啦，从头重闯本关！" : "🎆 错两次啦，从头重闯本关！";
+    showCelebrationOverlay(tip, { duration: 1750, milestone: true });
+    runEyeFlash(() => {
+      renderCurrentStep();
+    });
+  }
+
+  function showRetryEncouragement() {
+    praisePop.textContent = RETRY_LINES[Math.floor(Math.random() * RETRY_LINES.length)];
+    praisePop.classList.remove("praise-pop--hidden");
+    setTimeout(() => {
+      praisePop.classList.add("praise-pop--hidden");
+    }, 900);
+  }
+
+  function showCelebrationOverlay(text, options) {
+    if (!levelCelebration || !levelCelebrationText) return;
+    const opts = options || {};
+    const duration = Math.max(700, Number(opts.duration) || 1700);
+    const milestone = !!opts.milestone;
+    const extraClass = typeof opts.extraClass === "string" && opts.extraClass.trim() ? opts.extraClass.trim() : "";
+    levelCelebration.classList.toggle("level-celebration--milestone", milestone);
+    if (extraClass) levelCelebration.classList.add(extraClass);
     levelCelebration.classList.remove("level-celebration--hidden");
-    levelCelebrationText.textContent = done ? "🏆 Unit 4 全部通关！" : "🎉 恭喜进入第 " + nextLevel + " 关";
+    levelCelebrationText.textContent = text;
     setTimeout(() => {
       levelCelebration.classList.add("level-celebration--hidden");
-    }, 1700);
+      levelCelebration.classList.remove("level-celebration--milestone");
+      if (extraClass) levelCelebration.classList.remove(extraClass);
+    }, duration);
+  }
+
+  function showLevelCelebration(nextLevel, done) {
+    showCelebrationOverlay(done ? "🏆 Unit 4 全部通关！" : "🎉 恭喜进入第 " + nextLevel + " 关", { duration: 1700 });
+  }
+
+  function maybeShowLevelStartCelebration() {
+    if (state.currentStepIndex !== 0) return;
+    if (levelStartCelebrationShown === state.currentLevel) return;
+    if (state.currentLevel === 16) {
+      levelStartCelebrationShown = state.currentLevel;
+      const name = (playerName || "").trim() || "小青蛙";
+      showCelebrationOverlay(name + "开始养蛙啦！！", {
+        duration: 3200,
+        milestone: true,
+        extraClass: "level-celebration--level16-start",
+      });
+      return;
+    }
+    const text = LEVEL_START_CELEBRATIONS[state.currentLevel];
+    if (!text) return;
+    levelStartCelebrationShown = state.currentLevel;
+    showCelebrationOverlay("🎆 " + text, { duration: 1900, milestone: true });
+  }
+
+  let level16EyeIntroTimer = null;
+  let level16EyeSparkleTimer = null;
+  let level16EyeSparkleOffTimer = null;
+
+  function maybePlayLevel16EyeIntro() {
+    if (!characterArea) return;
+    if (level16EyeIntroTimer) {
+      clearTimeout(level16EyeIntroTimer);
+      level16EyeIntroTimer = null;
+    }
+    if (level16EyeSparkleTimer) {
+      clearTimeout(level16EyeSparkleTimer);
+      level16EyeSparkleTimer = null;
+    }
+    if (level16EyeSparkleOffTimer) {
+      clearTimeout(level16EyeSparkleOffTimer);
+      level16EyeSparkleOffTimer = null;
+    }
+    if (state.currentLevel !== 16 || state.currentStepIndex !== 0) {
+      characterArea.classList.remove("character-area--level16-eye-intro");
+      if (sparkleBurst) sparkleBurst.classList.remove("sparkle-burst--on");
+      return;
+    }
+    characterArea.classList.remove("character-area--level16-eye-intro");
+    void characterArea.offsetWidth;
+    characterArea.classList.add("character-area--level16-eye-intro");
+    level16EyeSparkleTimer = setTimeout(() => {
+      level16EyeSparkleTimer = null;
+      if (sparkleBurst) sparkleBurst.classList.add("sparkle-burst--on");
+    }, 520);
+    level16EyeSparkleOffTimer = setTimeout(() => {
+      level16EyeSparkleOffTimer = null;
+      if (sparkleBurst) sparkleBurst.classList.remove("sparkle-burst--on");
+    }, 1580);
+    level16EyeIntroTimer = setTimeout(() => {
+      level16EyeIntroTimer = null;
+      characterArea.classList.remove("character-area--level16-eye-intro");
+      if (sparkleBurst) sparkleBurst.classList.remove("sparkle-burst--on");
+    }, 3200);
+  }
+
+  function maybeShowEpisodeCelebration(step) {
+    if (!step || state.currentLevel !== 12 || step.kind !== "VQ") return;
+    if (step.episodeQuestionIndex !== 3) return;
+    const line = VIDEO_EPISODE_CELEBRATIONS[Math.floor(Math.random() * VIDEO_EPISODE_CELEBRATIONS.length)];
+    showCelebrationOverlay("🎇 " + line, { duration: 1200 });
   }
 
   function runEyeFlash(cb) {
@@ -1267,7 +2594,7 @@
 
   function finishLevel() {
     state.crowns += 1;
-    state.unlockedLevel = Math.max(state.unlockedLevel, Math.min(11, state.currentLevel + 1));
+    state.unlockedLevel = Math.max(state.unlockedLevel, Math.min(MAX_LEVEL, state.currentLevel + 1));
     saveState(state);
   }
 
@@ -1283,7 +2610,15 @@
   }
 
   function renderHeader(step) {
-    root.appendChild(el("div", "screen-title", step.title));
+    const titleEl = el("div", "screen-title", step.title);
+    if (step.kind === "L16R" || step.kind === "L16R2") {
+      titleEl.classList.add("screen-title--l16-reply-hero");
+    } else if (step.kind === "L16TF") {
+      titleEl.classList.add("screen-title--l16-tf");
+    } else if (state.currentLevel === 16) {
+      titleEl.classList.add("screen-title--level16");
+    }
+    root.appendChild(titleEl);
     if (state.currentLevel >= 7) {
       renderStoryMap();
     }
@@ -1332,6 +2667,37 @@
   function revealKey(node, html) {
     node.classList.remove("answer-key--hidden");
     node.innerHTML = html;
+  }
+
+  function normalizeOptionText(text) {
+    return String(text || "").trim().toLowerCase().replace(/[.!?]+$/g, "");
+  }
+
+  function getAcceptedTargets(item) {
+    if (!item) return [];
+    if (Array.isArray(item.acceptedTargets) && item.acceptedTargets.length) {
+      return item.acceptedTargets.slice();
+    }
+    const ctx = [item.line, item.prompt, item.scene, item.question].join(" ").toLowerCase();
+    const joinYouAnswers = ["You can go first.", "Sure", "Come and play!"];
+    const isJoinYouResponseTarget = joinYouAnswers.some(
+      (ans) => normalizeOptionText(item.target) === normalizeOptionText(ans)
+    );
+    if (ctx.includes("can i join you") && isJoinYouResponseTarget) {
+      return joinYouAnswers;
+    }
+    return item.target ? [item.target] : [];
+  }
+
+  function isAcceptedOption(item, opt) {
+    const picked = normalizeOptionText(opt);
+    return getAcceptedTargets(item).some((ans) => normalizeOptionText(ans) === picked);
+  }
+
+  function acceptedTargetsText(item, fallback) {
+    const targets = getAcceptedTargets(item);
+    if (!targets.length) return fallback || "";
+    return targets.join(" / ");
   }
 
   function renderAudioButton(text) {
@@ -1682,16 +3048,41 @@
   function renderReviewChoice(step) {
     renderHeader(step);
     renderReviewFunPack(step);
+    if (step.passage) {
+      if (step.topic) {
+        root.appendChild(el("div", "reading-topic", step.topic));
+      }
+      if (step.subTopic) {
+        root.appendChild(el("div", "reading-subhead", step.subTopic));
+      }
+      const passBox = el("div", "reading-passage", step.passage);
+      root.appendChild(passBox);
+    }
+    if (step.audioUrl) {
+      const audioWrap = el("div", "dialogue-box dialogue-box--yellow", "");
+      const audioHint = el("div", "prompt prompt--sub", "可先播放听力音频，再答题。");
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.preload = "none";
+      const src = String(step.audioUrl || "");
+      audio.src = src ? src + (src.includes("?") ? "&" : "?") + "v=" + Date.now() : "";
+      audio.style.width = "100%";
+      audioWrap.appendChild(audioHint);
+      audioWrap.appendChild(audio);
+      root.appendChild(audioWrap);
+    }
     root.appendChild(el("div", "prompt", step.prompt));
     const answerKey = createAnswerKey();
     const grid = el("div", "choice-grid");
-    step.options.forEach((opt) => {
-      const b = el("button", "choice-btn", withZhInLevel11(opt));
+    step.options.forEach((opt, i) => {
+      const letter = step.optionLetters && step.optionLetters[i];
+      const label = letter ? letter + ". " + opt : opt;
+      const b = el("button", "choice-btn", state.currentLevel === 11 ? withZhInLevel11(label) : label);
       b.type = "button";
       b.addEventListener("click", () => {
         if (stepStatus.graded || stepStatus.isCorrect) return;
         grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
-        if (opt === step.target) {
+        if (isAcceptedOption(step, opt)) {
           b.classList.add("choice-btn--correct");
           stepStatus.markCorrect();
         } else {
@@ -1702,8 +3093,241 @@
       });
       grid.appendChild(b);
     });
-    stepStatus.setReveal(() => revealKey(answerKey, "<strong>正确答案：</strong> " + step.target));
+    stepStatus.setReveal(() => revealKey(answerKey, "<strong>正确答案：</strong> " + acceptedTargetsText(step, step.target)));
     root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function renderLevel16Bundle(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt", step.prompt));
+    if (step.subPrompt) {
+      root.appendChild(el("div", "prompt prompt--sub l16-bundle__hint", step.subPrompt));
+    }
+    const answerKey = createAnswerKey();
+    const letters = step.optionLetters || ["A", "B", "C"];
+    const wrap = el("div", "l16-bundle", "");
+    const rowDone = step.rows.map(() => false);
+
+    function checkAllDone() {
+      return rowDone.every(Boolean);
+    }
+
+    step.rows.forEach((row, rowIdx) => {
+      const rowEl = el("div", "l16-bundle-row", "");
+      const num = el("div", "l16-bundle-row__num", String(rowIdx + 1));
+      const grid = el("div", "choice-grid choice-grid--odd-one-out l16-bundle-row__choices", "");
+      const main = el("div", "l16-bundle-row__main", "");
+      if (row.cue) {
+        main.appendChild(el("div", "l16-bundle-row__cue", row.cue));
+      }
+      main.appendChild(grid);
+      rowEl.appendChild(num);
+      rowEl.appendChild(main);
+
+      row.options.forEach((opt, i) => {
+        const label = letters[i] ? letters[i] + ". " + opt : opt;
+        const b = el("button", "choice-btn", label);
+        b.type = "button";
+        const col = el("div", "odd-one-out-col", "");
+        const meta = el("div", "odd-one-out-meta odd-one-out-meta--hidden", "");
+        meta.appendChild(el("div", "odd-one-out-pos", ""));
+        meta.appendChild(el("div", "odd-one-out-zh", ""));
+        col.appendChild(b);
+        col.appendChild(meta);
+        grid.appendChild(col);
+
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll(".choice-btn").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          const ok = normalizeOptionText(opt) === normalizeOptionText(row.target);
+          if (ok) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll(".choice-btn").forEach((btn) => {
+              btn.disabled = true;
+            });
+            revealOddOneOutRowMeta(row, grid);
+            rowDone[rowIdx] = true;
+            if (checkAllDone()) {
+              stepStatus.markCorrect();
+            } else {
+              speakLevel16SubCorrect();
+            }
+          } else {
+            b.classList.add("choice-btn--wrong");
+            setTimeout(() => {
+              if (!rowDone[rowIdx] && b.classList.contains("choice-btn--wrong")) {
+                b.classList.remove("choice-btn--wrong");
+              }
+            }, 450);
+          }
+          updateHud();
+        });
+      });
+      wrap.appendChild(rowEl);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = step.rows.map((r, i) => (i + 1) + ". " + acceptedTargetsText({ target: r.target }, r.target));
+      revealKey(answerKey, "<strong>正确答案：</strong><br/>" + lines.join("<br/>"));
+      wrap.querySelectorAll(".l16-bundle-row__choices").forEach((gridEl, idx) => {
+        revealOddOneOutRowMeta(step.rows[idx], gridEl);
+        gridEl.querySelectorAll(".choice-btn").forEach((btn) => {
+          btn.disabled = true;
+        });
+      });
+    });
+    root.appendChild(wrap);
+    root.appendChild(answerKey);
+  }
+
+  function renderLevel16Reply(step) {
+    renderHeader(step);
+    if (step.passage) {
+      const passBox = el("div", "l16-reply-passage reading-passage", step.passage);
+      root.appendChild(passBox);
+    }
+    const answerKey = createAnswerKey();
+    const wrap = el("div", "l16-bundle l16-reply-bundle", "");
+    const rowDone = step.rows.map(() => false);
+
+    function checkAllDone() {
+      return rowDone.every(Boolean);
+    }
+
+    step.rows.forEach((row, rowIdx) => {
+      const rowEl = el("div", "l16-bundle-row l16-reply-row", "");
+      const num = el("div", "l16-bundle-row__num", String(rowIdx + 1));
+      const grid = el("div", "choice-grid choice-grid--five l16-reply-row__choices", "");
+      const main = el("div", "l16-reply-row__main", "");
+      if (!step.passage) {
+        const body = el("div", "l16-reply-row__body", "");
+        if (row.scene) {
+          body.appendChild(el("div", "l16-reply-row__scene", row.scene));
+        }
+        body.appendChild(el("div", "l16-reply-row__dialogue", row.dialogue));
+        main.appendChild(body);
+      }
+      main.appendChild(grid);
+      rowEl.appendChild(num);
+      rowEl.appendChild(main);
+
+      const letters = row.optionLetters || ["A", "B", "C", "D", "E"];
+      row.options.forEach((opt, i) => {
+        const label = letters[i] ? letters[i] + ". " + opt : opt;
+        const b = el("button", "choice-btn", label);
+        b.type = "button";
+        grid.appendChild(b);
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll(".choice-btn").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          const ok = normalizeOptionText(opt) === normalizeOptionText(row.target);
+          if (ok) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll(".choice-btn").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            if (checkAllDone()) {
+              stepStatus.markCorrect();
+            } else {
+              speakLevel16SubCorrect();
+            }
+          } else {
+            b.classList.add("choice-btn--wrong");
+            setTimeout(() => {
+              if (!rowDone[rowIdx] && b.classList.contains("choice-btn--wrong")) {
+                b.classList.remove("choice-btn--wrong");
+              }
+            }, 450);
+          }
+          updateHud();
+        });
+      });
+      wrap.appendChild(rowEl);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = step.rows.map((r, i) => (i + 1) + ". " + (r.targetLetter || "?") + ". " + r.target);
+      revealKey(answerKey, "<strong>正确答案：</strong><br/>" + lines.join("<br/>"));
+      wrap.querySelectorAll(".l16-reply-row__choices").forEach((gridEl) => {
+        gridEl.querySelectorAll(".choice-btn").forEach((btn) => {
+          btn.disabled = true;
+        });
+      });
+    });
+    root.appendChild(wrap);
+    root.appendChild(answerKey);
+  }
+
+  function renderLevel16TrueFalse(step) {
+    renderHeader(step);
+    if (step.passage) {
+      root.appendChild(el("div", "l16-reply-passage reading-passage", step.passage));
+    }
+    if (step.subPrompt) {
+      root.appendChild(el("div", "prompt prompt--sub l16-bundle__hint", step.subPrompt));
+    }
+    const answerKey = createAnswerKey();
+    const wrap = el("div", "l16-bundle l16-tf-bundle", "");
+    const rowDone = step.rows.map(() => false);
+
+    function checkAllDone() {
+      return rowDone.every(Boolean);
+    }
+
+    step.rows.forEach((row, rowIdx) => {
+      const rowEl = el("div", "l16-bundle-row l16-tf-row", "");
+      const num = el("div", "l16-bundle-row__num", String(rowIdx + 1));
+      const main = el("div", "l16-bundle-row__main", "");
+      main.appendChild(el("div", "l16-tf-statement", row.statement));
+      const grid = el("div", "choice-grid l16-tf-grid", "");
+      ["T", "F"].forEach((opt) => {
+        const b = el("button", "choice-btn l16-tf-btn", opt);
+        b.type = "button";
+        grid.appendChild(b);
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll(".choice-btn").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          const ok = normalizeOptionText(opt) === normalizeOptionText(row.target);
+          if (ok) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll(".choice-btn").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            if (checkAllDone()) {
+              stepStatus.markCorrect();
+            } else {
+              speakLevel16SubCorrect();
+            }
+          } else {
+            b.classList.add("choice-btn--wrong");
+            setTimeout(() => {
+              if (!rowDone[rowIdx] && b.classList.contains("choice-btn--wrong")) {
+                b.classList.remove("choice-btn--wrong");
+              }
+            }, 450);
+          }
+          updateHud();
+        });
+      });
+      main.appendChild(grid);
+      rowEl.appendChild(num);
+      rowEl.appendChild(main);
+      wrap.appendChild(rowEl);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = step.rows.map((r, i) => (i + 1) + ". " + r.target);
+      revealKey(answerKey, "<strong>正确答案：</strong><br/>" + lines.join("<br/>"));
+      wrap.querySelectorAll(".l16-tf-grid").forEach((gridEl) => {
+        gridEl.querySelectorAll(".choice-btn").forEach((btn) => {
+          btn.disabled = true;
+        });
+      });
+    });
+    root.appendChild(wrap);
     root.appendChild(answerKey);
   }
 
@@ -1955,7 +3579,7 @@
       b.addEventListener("click", () => {
         if (stepStatus.graded || stepStatus.isCorrect) return;
         grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
-        if (opt === step.target) {
+        if (isAcceptedOption(step, opt)) {
           b.classList.add("choice-btn--correct");
           stepStatus.markCorrect();
         } else {
@@ -1966,26 +3590,19 @@
       });
       grid.appendChild(b);
     });
-    stepStatus.setReveal(() => revealKey(answerKey, "<strong>推荐回答：</strong> " + step.target));
+    stepStatus.setReveal(() => revealKey(answerKey, "<strong>推荐回答：</strong> " + acceptedTargetsText(step, step.target)));
     root.appendChild(grid);
     root.appendChild(answerKey);
   }
 
   function renderAdvancedOrder(step) {
     renderHeader(step);
-    if (state.currentLevel >= 9) {
-      root.appendChild(
-        renderSceneCard({
-          sceneKey: step.sceneKey || "gym",
-          scene: step.scene || "剧情任务场景",
-          line: step.targetSentence || step.sentence,
-          speaker: step.speaker || "青蛙伙伴",
-          speakerEmoji: step.speakerEmoji || "🐸🐸🐸",
-        })
-      );
-    }
-    root.appendChild(el("div", "prompt prompt--sub", (step.speaker || "你") + " 说：把句子拼完整"));
     const sentence = step.targetSentence || step.sentence;
+    root.appendChild(el("div", "prompt prompt--sub", (step.speaker || "你") + " 说：把句子拼完整"));
+    const zhHint = ZH_BY_EN[sentence] || "";
+    if (zhHint) {
+      root.appendChild(el("div", "prompt prompt--sub", "中文提示：" + zhHint));
+    }
     const answerKey = createAnswerKey();
     const line = el("div", "order-built", "");
     const pool = el("div", "order-row", "");
@@ -2066,7 +3683,7 @@
         b.type = "button";
         b.addEventListener("click", () => {
           if (stepStatus.graded || stepStatus.isCorrect) return;
-          if (opt === t.target) {
+          if (isAcceptedOption(t, opt)) {
             playEnglishAudioGuaranteed(t.target);
             if (turn >= step.turns.length - 1) {
               stepStatus.markCorrect();
@@ -2085,7 +3702,7 @@
     }
 
     stepStatus.setReveal(() => {
-      const lines = step.turns.map((t) => t.speaker + " -> " + t.target).join("<br/>");
+      const lines = step.turns.map((t) => t.speaker + " -> " + acceptedTargetsText(t, t.target)).join("<br/>");
       revealKey(answerKey, "<strong>推荐对话：</strong><br/>" + lines);
     });
     root.appendChild(box);
@@ -2115,7 +3732,7 @@
       b.addEventListener("click", () => {
         if (stepStatus.graded || stepStatus.isCorrect) return;
         grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
-        if (opt === step.target) {
+        if (isAcceptedOption(step, opt)) {
           b.classList.add("choice-btn--correct");
           stepStatus.markCorrect();
         } else {
@@ -2126,7 +3743,7 @@
       });
       grid.appendChild(b);
     });
-    stepStatus.setReveal(() => revealKey(answerKey, "<strong>最佳表达：</strong> " + step.target));
+    stepStatus.setReveal(() => revealKey(answerKey, "<strong>最佳表达：</strong> " + acceptedTargetsText(step, step.target)));
     root.appendChild(grid);
     root.appendChild(answerKey);
   }
@@ -2154,6 +3771,228 @@
     root.appendChild(box);
   }
 
+  function renderStoryLineStep(step) {
+    renderHeaderWithAudio(step, step.en || "");
+    root.appendChild(
+      renderSceneCard({
+        sceneKey: step.sceneKey || "playground",
+        scene: step.scene || "连续剧情",
+        line: step.en || "",
+        speaker: step.speaker || "青蛙伙伴",
+        speakerEmoji: step.speakerEmoji || "🐸",
+      })
+    );
+    const box = el("div", "dialogue-box dialogue-box--yellow", "");
+    box.appendChild(el("div", "prompt prompt--sub", "英文台词"));
+    box.appendChild(el("div", "word-hero", step.en || ""));
+    box.appendChild(el("div", "prompt prompt--sub", "中文释义：" + (step.zh || "")));
+    const btn = el("button", "btn-primary", "下一幕");
+    btn.type = "button";
+    btn.style.marginTop = "10px";
+    btn.addEventListener("click", () => {
+      if (stepStatus.graded || stepStatus.isCorrect) return;
+      stepStatus.markCorrect();
+      updateHud();
+    });
+    box.appendChild(btn);
+    root.appendChild(box);
+  }
+
+  function renderVideoWatchStep(step) {
+    renderHeader(step);
+    root.appendChild(
+      renderSceneCard({
+        sceneKey: step.sceneKey || "playground",
+        scene: step.scene || "先看视频",
+        line: "先看视频，下一页再答题",
+        speaker: "视频任务",
+        speakerEmoji: "🎬🐸",
+      })
+    );
+    const videoWrap = el("div", "video-quiz-wrap", "");
+    const video = document.createElement("video");
+    video.className = "video-quiz-player";
+    video.controls = false;
+    video.preload = "metadata";
+    video.playsInline = true;
+    const rawVideoSrc = String(step.video || "");
+    video.src = rawVideoSrc
+      ? rawVideoSrc + (rawVideoSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
+      : "";
+    const tip = el("div", "video-quiz-tip", "视频只能播放两次，看看你的记忆力哦。");
+    const row = el("div", "video-quiz-actions", "");
+    const watchLimit = 2;
+    let watchedTimes = 0;
+    let isPlaying = false;
+
+    const playBtn = el("button", "btn-secondary", "开始播放");
+    playBtn.type = "button";
+    const readyBtn = el("button", "btn-secondary", "我准备好了");
+    readyBtn.type = "button";
+    readyBtn.disabled = true;
+    row.appendChild(playBtn);
+    row.appendChild(readyBtn);
+
+    function refreshState() {
+      if (isPlaying) {
+        tip.textContent = "正在播放视频，请认真看完。";
+        playBtn.disabled = true;
+        readyBtn.disabled = true;
+        return;
+      }
+      if (watchedTimes <= 0) tip.textContent = "视频只能播放两次，看看你的记忆力哦。";
+      else if (watchedTimes === 1) tip.textContent = "已播放一次，点击“我准备好了”进入答题。";
+      else tip.textContent = "视频两次已播放完，点击“我准备好了”进入答题。";
+      playBtn.disabled = watchedTimes >= watchLimit;
+      readyBtn.disabled = watchedTimes < 1;
+    }
+
+    playBtn.addEventListener("click", () => {
+      if (isPlaying || watchedTimes >= watchLimit) return;
+      try {
+        video.currentTime = 0;
+        isPlaying = true;
+        refreshState();
+        const p = video.play();
+        if (p && p.catch) {
+          p.catch(() => {
+            isPlaying = false;
+            refreshState();
+          });
+        }
+      } catch (_) {
+        isPlaying = false;
+        refreshState();
+      }
+    });
+
+    readyBtn.addEventListener("click", () => {
+      if (isPlaying || watchedTimes < 1) return;
+      stepStatus.markCorrect();
+      updateHud();
+    });
+
+    video.addEventListener("ended", () => {
+      isPlaying = false;
+      watchedTimes = Math.min(watchLimit, watchedTimes + 1);
+      refreshState();
+    });
+    video.addEventListener("pause", () => {
+      if (isPlaying && video.currentTime < (video.duration || 0)) {
+        isPlaying = false;
+        refreshState();
+      }
+    });
+    video.addEventListener("error", () => {
+      tip.textContent = "视频加载失败，请检查文件路径或格式。";
+    });
+    videoWrap.appendChild(video);
+    videoWrap.appendChild(tip);
+    videoWrap.appendChild(row);
+    root.appendChild(videoWrap);
+    refreshState();
+  }
+
+  function renderVideoQuizStep(step) {
+    renderHeader(step);
+    root.appendChild(
+      renderSceneCard({
+        sceneKey: step.sceneKey || "playground",
+        scene: "根据上一页视频内容作答",
+        line: step.target || "",
+        speaker: "记忆挑战",
+        speakerEmoji: "🧠🐸",
+      })
+    );
+    root.appendChild(el("div", "prompt prompt--sub", step.prompt || "请选择正确答案："));
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn", state.currentLevel === 11 ? withZhInLevel11(opt) : opt);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+        if (isAcceptedOption(step, opt)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => revealKey(answerKey, "<strong>正确答案：</strong> " + acceptedTargetsText(step, step.target || "")));
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function formatClozePassageHTML(template, highlightBlank) {
+    const esc = (s) =>
+      String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    const parts = String(template || "").split(/(\{\{\d+\}\})/);
+    let html = "";
+    parts.forEach((part) => {
+      const m = part.match(/^\{\{(\d+)\}\}$/);
+      if (m) {
+        const n = Number(m[1]);
+        const on = n === highlightBlank;
+        html +=
+          '<span class="cloze-gap' +
+          (on ? " cloze-gap--active" : "") +
+          '"><span class="cloze-gap__num">' +
+          esc(String(n)) +
+          "</span> ______ </span>";
+      } else {
+        html += esc(part).replace(/\n/g, "<br/>");
+      }
+    });
+    return html;
+  }
+
+  function renderClozeFillStep(step) {
+    renderHeader(step);
+    if (step.sectionTitle) {
+      root.appendChild(el("div", "cloze-section-title", step.sectionTitle));
+    }
+    if (step.articleLabel) {
+      root.appendChild(el("div", "reading-subhead", step.articleLabel));
+    }
+    const pass = el("div", "reading-passage cloze-passage");
+    pass.innerHTML = formatClozePassageHTML(step.passageTemplate, step.blankIndex);
+    root.appendChild(pass);
+    root.appendChild(el("div", "prompt prompt--sub", step.prompt || "请点击选择正确答案"));
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid");
+    const letters = step.optionLetters;
+    (step.options || []).forEach((opt, i) => {
+      const label = letters && letters[i] ? letters[i] + ". " + opt : opt;
+      const b = el("button", "choice-btn", label);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+        if (isAcceptedOption(step, opt)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => revealKey(answerKey, "<strong>正确答案：</strong> " + acceptedTargetsText(step, step.target)));
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
   function renderStep(step) {
     stepStatus.reset();
     renderByKind[step.kind](step);
@@ -2163,6 +4002,9 @@
 
   const renderByKind = {
     TIP: renderTipStep,
+    ST1: renderStoryLineStep,
+    VW: renderVideoWatchStep,
+    VQ: renderVideoQuizStep,
     W1: renderW1,
     W2: renderW2,
     P1: renderSpeakingStep,
@@ -2186,6 +4028,11 @@
     A4: (step) => renderSentenceBuilder(step, true),
     A5: renderAdvancedMulti,
     A6: renderSituationalChoice,
+    CLZ: renderClozeFillStep,
+    L16: renderLevel16Bundle,
+    L16R: renderLevel16Reply,
+    L16R2: renderLevel16Reply,
+    L16TF: renderLevel16TrueFalse,
   };
 
   function renderCurrentStep() {
@@ -2203,8 +4050,16 @@
     praisePop.classList.add("praise-pop--hidden");
     const step = currentStep();
     if (!step) return;
+    if (lastRenderedLevel !== state.currentLevel) {
+      lastRenderedLevel = state.currentLevel;
+      levelStartCelebrationShown = null;
+      wrongAttemptsOnCurrentStep = 0;
+    }
     root.classList.toggle("challenge-zone--yellow", state.currentLevel >= 7);
     renderStep(step);
+    maybeAutoSpeakLevel12Question(step);
+    maybeShowLevelStartCelebration();
+    maybePlayLevel16EyeIntro();
   }
 
   function goNextStep(force) {
@@ -2215,9 +4070,11 @@
       autoAdvanceTimer = null;
       autoAdvancing = false;
     }
+    const step = currentStep();
     state.stars += 1;
     const total = currentLevelObj().steps.length;
     if (state.currentStepIndex < total - 1) {
+      maybeShowEpisodeCelebration(step);
       state.currentStepIndex += 1;
       saveState(state);
       runEyeFlash(renderCurrentStep);
@@ -2227,10 +4084,10 @@
     const completed = state.currentLevel;
     finishLevel();
     state.currentStepIndex = 0;
-    if (state.currentLevel < 11) state.currentLevel += 1;
+    if (state.currentLevel < MAX_LEVEL) state.currentLevel += 1;
     saveState(state);
     runEyeFlash(() => {
-      const done = completed >= 11;
+      const done = completed >= MAX_LEVEL;
       showLevelCelebration(state.currentLevel, done);
       if (done) {
         clearRoot();
@@ -2252,13 +4109,321 @@
     nameModal.classList.remove("modal-overlay--hidden");
     if (nameInput) {
       nameInput.value = playerName || "";
-      setTimeout(() => nameInput.focus(), 0);
+    }
+    if (pinInput) {
+      pinInput.value = "";
+    }
+    setTimeout(() => {
+      if (nameInput && !nameInput.value) nameInput.focus();
+      else if (pinInput) pinInput.focus();
+      else if (nameInput) nameInput.focus();
+    }, 0);
+  }
+
+  function hasCloudAccountSystem() {
+    return CLOUD_ENABLED;
+  }
+
+  function isSameDeviceForUsername(username) {
+    const normalized = normalizeUserName(username);
+    if (!normalized) return false;
+    const saved = normalizeUserName(loadPlayerName());
+    return !!saved && saved.toLowerCase() === normalized.toLowerCase();
+  }
+
+  function openSetPinModal() {
+    if (!setPinModal) return;
+    if (!playerName) {
+      alert("请先登录账号，再设置密码。");
+      return;
+    }
+    if (setPinInput) setPinInput.value = "";
+    setPinModal.classList.remove("modal-overlay--hidden");
+    if (setPinInput) setTimeout(() => setPinInput.focus(), 0);
+  }
+
+  function closeSetPinModal() {
+    if (!setPinModal) return;
+    setPinModal.classList.add("modal-overlay--hidden");
+  }
+
+  async function saveSetPin() {
+    const username = normalizeUserName(playerName || (nameInput && nameInput.value ? nameInput.value : ""));
+    if (!username) {
+      alert("请先输入并登录用户名，再设置密码。");
+      return;
+    }
+    if (!hasCloudAccountSystem()) {
+      alert("当前未连接云端，无法保存跨设备密码。请先连接 Supabase。");
+      return;
+    }
+    const pin = normalizePin(setPinInput && setPinInput.value ? setPinInput.value : "");
+    if (!isValidPin(pin)) {
+      alert("请输入4位数字密码。");
+      if (setPinInput) {
+        setPinInput.focus();
+        setPinInput.select();
+      }
+      return;
+    }
+
+    const prevText = btnSavePin ? btnSavePin.textContent : "";
+    if (btnSavePin) {
+      btnSavePin.disabled = true;
+      btnSavePin.textContent = "保存中...";
+    }
+    try {
+      const localId = playerId || loadPlayerId();
+      const exists = await fetchCloudAccount(username);
+      if (exists.ok) {
+        const row = exists.row;
+        const updated = await upsertCloudAccount(row.username || username, pin, row.playerId || localId);
+        if (!updated.ok) {
+          alert(updated.reason === "table_missing" ? buildAccountHelpText() : "保存密码失败，请稍后重试。");
+          return;
+        }
+      } else if (exists.reason === "not_found") {
+        const created = await createCloudAccount(username, pin, localId);
+        if (!created.ok && created.reason !== "exists") {
+          alert(created.reason === "table_missing" ? buildAccountHelpText() : "保存密码失败，请稍后重试。");
+          return;
+        }
+      } else {
+        alert(exists.reason === "table_missing" ? buildAccountHelpText() : "保存密码失败，请稍后重试。");
+        return;
+      }
+      alert("密码已保存，可跨设备登录。");
+      closeSetPinModal();
+    } catch (_) {
+      alert("保存密码失败，请检查网络后重试。");
+    } finally {
+      if (btnSavePin) {
+        btnSavePin.disabled = false;
+        btnSavePin.textContent = prevText || "保存密码";
+      }
+    }
+  }
+
+  async function logoutAccount() {
+    if (!playerName) {
+      openNameModal();
+      return;
+    }
+    if (!hasCloudAccountSystem()) {
+      alert("退出登录前必须先设置密码。当前未连接云端，请先连接 Supabase 并设置密码。");
+      return;
+    }
+    const account = await fetchCloudAccount(playerName);
+    if (!account.ok) {
+      if (account.reason === "table_missing") {
+        alert(buildAccountHelpText());
+      } else {
+        alert("暂时无法验证密码状态，请稍后重试。");
+      }
+      return;
+    }
+    const savedPin = normalizePin(account.row.pin);
+    if (!savedPin) {
+      alert("退出登录前必须先设置4位密码。请先点击“设置密码”。");
+      openSetPinModal();
+      return;
+    }
+    if (!window.confirm("确认退出登录吗？")) return;
+    playerName = "";
+    savePlayerName("");
+    localStorage.removeItem(STORAGE_KEYS.playerId);
+    playerId = loadPlayerId();
+    closeSetPinModal();
+    openNameModal();
+    updateHud();
+  }
+
+  async function finishAccountLogin(username, id) {
+    playerName = username;
+    if (id) {
+      playerId = id;
+      savePlayerId(playerId);
+    }
+    savePlayerName(playerName);
+    await refreshLeaderboardFromCloud();
+    const bound = await bindIdentityByName(playerName);
+    if (!bound.ok) return false;
+    const progressSynced = await hydrateProgressFromCloudByPlayerId(playerId);
+    if (!progressSynced.ok && progressSynced.reason === "table_missing") {
+      alert("跨设备进度表尚未初始化，请在 Supabase 执行一次 SQL 后即可同步关卡进度。");
+    }
+    if (!progressSynced.ok && progressSynced.reason !== "not_found" && progressSynced.reason !== "table_missing") {
+      // 云进度同步失败时继续使用本地进度，避免阻塞登录
+    }
+    hydrateStateFromBoundAccount();
+    applyTeacherFullUnlockIfNeeded();
+    saveState(state);
+    upsertCurrentPlayerScore();
+    closeNameModal();
+    renderCurrentStep();
+    return true;
+  }
+
+  async function loginWithAccount() {
+    if (!nameInput || !pinInput) return;
+    const username = normalizeUserName(nameInput.value);
+    const pin = normalizePin(pinInput.value);
+    if (!username) {
+      nameInput.focus();
+      return;
+    }
+    if (!hasCloudAccountSystem()) {
+      if (!pin) {
+        await finishAccountLogin(username, playerId || loadPlayerId());
+        return;
+      }
+      alert("当前未连接云端，无法校验密码。请先连接 Supabase。");
+      return;
+    }
+    const rowRes = await fetchCloudAccount(username);
+    if (!rowRes.ok) {
+      if (rowRes.reason === "not_found") {
+        alert("账号不存在，请先注册。");
+      } else if (rowRes.reason === "table_missing") {
+        alert(buildAccountHelpText());
+      } else if (rowRes.reason === "cloud_off") {
+        alert("当前未连接云端，无法跨设备登录。");
+      } else {
+        alert("登录失败，请稍后重试。");
+      }
+      return;
+    }
+    const row = rowRes.row;
+    const savedPin = normalizePin(row.pin);
+    if (savedPin) {
+      if (!isValidPin(pin)) {
+        alert("该账号已设置密码，请输入4位数字密码。");
+        pinInput.focus();
+        pinInput.select();
+        return;
+      }
+      if (savedPin !== pin) {
+        alert("密码错误，请重新输入。");
+        pinInput.focus();
+        pinInput.select();
+        return;
+      }
+    }
+    const ok = await finishAccountLogin(row.username || username, row.playerId || playerId);
+    if (!ok) {
+      alert("登录失败，请重试。");
     }
   }
 
   function closeNameModal() {
     if (!nameModal) return;
     nameModal.classList.add("modal-overlay--hidden");
+  }
+
+  async function enterWithoutPin() {
+    if (!nameInput) return;
+    const username = normalizeUserName(nameInput.value);
+    if (!username) {
+      nameInput.focus();
+      return;
+    }
+    const localId = playerId || loadPlayerId();
+    if (!hasCloudAccountSystem()) {
+      await finishAccountLogin(username, localId);
+      return;
+    }
+    const exists = await fetchCloudAccount(username);
+    if (!exists.ok) {
+      if (exists.reason === "table_missing") {
+        alert(buildAccountHelpText());
+        return;
+      }
+      if (exists.reason !== "not_found") {
+        alert("暂时无法进入，请稍后重试。");
+        return;
+      }
+      const created = await createCloudAccount(username, "", localId);
+      if (!created.ok && created.reason !== "exists") {
+        alert(created.reason === "table_missing" ? buildAccountHelpText() : "创建账号失败，请稍后重试。");
+        return;
+      }
+      await finishAccountLogin(username, localId);
+      return;
+    }
+    const row = exists.row;
+    const savedPin = normalizePin(row.pin);
+    if (savedPin && !isSameDeviceForUsername(row.username || username)) {
+      alert("该账号已设置密码，请使用“登录账号”并输入4位密码。");
+      if (pinInput) {
+        pinInput.focus();
+        pinInput.select();
+      }
+      return;
+    }
+    const ok = await finishAccountLogin(row.username || username, row.playerId || localId);
+    if (!ok) {
+      alert("进入失败，请重试。");
+      return;
+    }
+  }
+
+  async function registerAccount() {
+    if (!nameInput || !pinInput) return;
+    const username = normalizeUserName(nameInput.value);
+    const pin = normalizePin(pinInput.value);
+    if (!username) {
+      nameInput.focus();
+      return;
+    }
+    if (!isValidPin(pin)) {
+      alert("请输入4位数字密码。");
+      pinInput.focus();
+      pinInput.select();
+      return;
+    }
+    if (!hasCloudAccountSystem()) {
+      alert("当前未连接云端，无法保存跨设备密码。请先连接 Supabase。");
+      return;
+    }
+    const localId = playerId || loadPlayerId();
+    const exists = await fetchCloudAccount(username);
+    if (exists.ok) {
+      const row = exists.row;
+      const savedPin = normalizePin(row.pin);
+      if (savedPin && savedPin !== pin) {
+        alert("该账号已设置不同密码，请先用原密码登录。");
+        pinInput.focus();
+        pinInput.select();
+        return;
+      }
+      const updated = await upsertCloudAccount(row.username || username, pin, row.playerId || localId);
+      if (!updated.ok) {
+        alert(updated.reason === "table_missing" ? buildAccountHelpText() : "保存密码失败，请稍后重试。");
+        return;
+      }
+      await finishAccountLogin(row.username || username, row.playerId || localId);
+      return;
+    }
+    if (exists.reason === "table_missing") {
+      alert(buildAccountHelpText());
+      return;
+    }
+    if (exists.reason !== "not_found") {
+      alert("暂时无法注册，请稍后再试。");
+      return;
+    }
+    const created = await createCloudAccount(username, pin, localId);
+    if (!created.ok) {
+      if (created.reason === "exists") {
+        alert("该用户名已存在，请直接登录。");
+      } else if (created.reason === "table_missing") {
+        alert(buildAccountHelpText());
+      } else {
+        alert("注册失败，请稍后重试。");
+      }
+      return;
+    }
+    await finishAccountLogin(username, localId);
   }
 
   function renderCloudConfigPanel() {
@@ -2293,6 +4458,10 @@
     await refreshLeaderboardFromCloud();
     renderCloudConfigPanel();
     renderLeaderboard();
+    toggleTeacherPanel(teacherAccessUnlocked);
+    if (teacherAccessUnlocked) {
+      await loadTeacherAccounts();
+    }
     if (leaderboardModal) leaderboardModal.classList.remove("modal-overlay--hidden");
   }
 
@@ -2309,6 +4478,7 @@
         openNameModal();
         return;
       }
+      applyTeacherFullUnlockIfNeeded();
       renderCurrentStep();
       return;
     }
@@ -2317,7 +4487,7 @@
 
   function openModal() {
     levelGrid.innerHTML = "";
-    for (let i = 1; i <= 11; i++) {
+    for (let i = 1; i <= MAX_LEVEL; i++) {
       const b = el("button", "level-btn", String(i));
       b.type = "button";
       if (i > state.unlockedLevel) b.disabled = true;
@@ -2349,45 +4519,48 @@
 
   if (btnRetryLevel) {
     btnRetryLevel.addEventListener("click", () => {
+      wrongAttemptsOnCurrentStep = 0;
       renderCurrentStep();
     });
   }
 
   btnLevelPicker.addEventListener("click", openModal);
   if (btnLeaderboard) btnLeaderboard.addEventListener("click", openLeaderboardModal);
+  if (btnSetPin) btnSetPin.addEventListener("click", openSetPinModal);
+  if (btnLogout) btnLogout.addEventListener("click", logoutAccount);
+  if (leaderboardTitleEl) leaderboardTitleEl.addEventListener("click", onLeaderboardTitleTap);
+  if (btnTeacherRefresh) btnTeacherRefresh.addEventListener("click", loadTeacherAccounts);
+  if (teacherSearchInput) teacherSearchInput.addEventListener("input", renderTeacherAccounts);
   btnCloseModal.addEventListener("click", () => modal.classList.add("modal-overlay--hidden"));
   if (btnCloseLeaderboard) btnCloseLeaderboard.addEventListener("click", closeLeaderboardModal);
+  if (btnCloseSetPin) btnCloseSetPin.addEventListener("click", closeSetPinModal);
+  if (btnSavePin) btnSavePin.addEventListener("click", saveSetPin);
   if (btnSaveCloud) btnSaveCloud.addEventListener("click", saveCloudConfig);
 
-  async function commitPlayerName() {
-    if (!nameInput) return;
-    const name = (nameInput.value || "").trim().slice(0, 20);
-    if (!name) {
-      nameInput.focus();
-      return;
-    }
-    const previousName = playerName;
-    playerName = name;
-    const bound = await bindIdentityByName(playerName);
-    if (!bound.ok) {
-      playerName = previousName || "";
-      if (bound.reason === "taken") {
-        alert("这个名字已经被使用啦，请换一个新名字。");
-      }
-      nameInput.focus();
-      nameInput.select();
-      return;
-    }
-    savePlayerName(playerName);
-    upsertCurrentPlayerScore();
-    closeNameModal();
-    renderCurrentStep();
-  }
-
-  if (btnSaveName) btnSaveName.addEventListener("click", commitPlayerName);
+  if (btnLoginName) btnLoginName.addEventListener("click", loginWithAccount);
+  if (btnRegisterName) btnRegisterName.addEventListener("click", registerAccount);
+  if (btnEnterNoPin) btnEnterNoPin.addEventListener("click", enterWithoutPin);
   if (nameInput) {
     nameInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") commitPlayerName();
+      if (e.key === "Enter") loginWithAccount();
+    });
+  }
+  if (pinInput) {
+    pinInput.addEventListener("input", () => {
+      const trimmed = normalizePin(pinInput.value);
+      if (trimmed !== pinInput.value) pinInput.value = trimmed;
+    });
+    pinInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loginWithAccount();
+    });
+  }
+  if (setPinInput) {
+    setPinInput.addEventListener("input", () => {
+      const trimmed = normalizePin(setPinInput.value);
+      if (trimmed !== setPinInput.value) setPinInput.value = trimmed;
+    });
+    setPinInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") saveSetPin();
     });
   }
 
