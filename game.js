@@ -416,6 +416,24 @@
     speakChineseTTS("呱呱");
   }
 
+  /** 第16关一大题全对：先「呱呱」再英文「A+」（子题最后一步只走 markCorrect，须在此补 呱呱） */
+  function speakLevel16GuaguaThenStepPass() {
+    if (!window.speechSynthesis) {
+      speakLevel16StepPass();
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance("呱呱");
+    u.lang = "zh-CN";
+    u.rate = 0.98;
+    const after = () => {
+      speakLevel16StepPass();
+    };
+    u.onend = after;
+    u.onerror = after;
+    window.speechSynthesis.speak(u);
+  }
+
   /** 第16关一大题全对：仅英文「A+」 */
   function speakLevel16StepPass() {
     speakFallback("A+");
@@ -2646,7 +2664,7 @@
         speakChineseTTS("太棒了");
         if (!this.hadWrong && !this.graded) showPraise();
       } else if (state.currentLevel === 16 && step && isLevel16PraiseStepKind(step.kind)) {
-        speakLevel16StepPass();
+        speakLevel16GuaguaThenStepPass();
         if (!this.hadWrong && !this.graded) showPraise();
       } else {
         const speakText = getAutoSpeakText(step);
@@ -3211,7 +3229,19 @@
 
   function renderL17B(step) {
     renderHeader(step);
-    root.appendChild(el("div", "prompt", step.promptZh || step.phrase.zh));
+    const zh = String((step.phrase && step.phrase.zh) || step.promptZh || "").trim();
+    root.appendChild(el("div", "prompt prompt--sub", "会为你读出中文，也可点喇叭重播"));
+    root.appendChild(el("div", "prompt", zh));
+    const zline = el("div", "audio-row");
+    const zbtn = el("button", "btn-audio btn-audio--blue", "🔊");
+    zbtn.type = "button";
+    zbtn.setAttribute("aria-label", "重播中文");
+    zbtn.addEventListener("click", () => speakChineseTTS(zh));
+    zline.appendChild(zbtn);
+    root.appendChild(zline);
+    setTimeout(() => {
+      if (zh) speakChineseTTS(zh);
+    }, 120);
     const answerKey = createAnswerKey();
     const grid = el("div", "choice-grid choice-grid--l17-phrase");
     (step.options || []).forEach((opt) => {
@@ -4428,6 +4458,8 @@
     const watchLimit = 2;
     let watchedTimes = 0;
     let isPlaying = false;
+    /** 单次播放内避免 ended / timeupdate 重复计次（部分移动端偶发不触发 ended） */
+    let playEndHandled = false;
 
     const playBtn = el("button", "btn-secondary", "开始播放");
     playBtn.type = "button";
@@ -4451,8 +4483,17 @@
       readyBtn.disabled = watchedTimes < 1;
     }
 
+    function onWatchPlaybackEnd() {
+      if (playEndHandled) return;
+      playEndHandled = true;
+      isPlaying = false;
+      watchedTimes = Math.min(watchLimit, watchedTimes + 1);
+      refreshState();
+    }
+
     playBtn.addEventListener("click", () => {
       if (isPlaying || watchedTimes >= watchLimit) return;
+      playEndHandled = false;
       try {
         video.currentTime = 0;
         isPlaying = true;
@@ -4476,10 +4517,12 @@
       updateHud();
     });
 
-    video.addEventListener("ended", () => {
-      isPlaying = false;
-      watchedTimes = Math.min(watchLimit, watchedTimes + 1);
-      refreshState();
+    video.addEventListener("ended", onWatchPlaybackEnd);
+    video.addEventListener("timeupdate", () => {
+      if (playEndHandled || !isPlaying) return;
+      const d = video.duration;
+      if (!d || !Number.isFinite(d) || d <= 0) return;
+      if (video.currentTime >= d - 0.2) onWatchPlaybackEnd();
     });
     video.addEventListener("pause", () => {
       if (isPlaying && video.currentTime < (video.duration || 0)) {
@@ -4488,7 +4531,11 @@
       }
     });
     video.addEventListener("error", () => {
-      tip.textContent = "视频加载失败，请检查文件路径或格式。";
+      isPlaying = false;
+      tip.textContent =
+        "视频加载失败（路径或网络）。请确认已部署 assets/videos。仍可点「我准备好了」继续，以免卡住。";
+      if (watchedTimes < 1) watchedTimes = 1;
+      refreshState();
     });
     videoWrap.appendChild(video);
     videoWrap.appendChild(tip);
