@@ -417,6 +417,32 @@ body {
   opacity: 1;
 }
 
+/* 第18关：头顶大橙子，隐藏苹果 */
+.frog-orange-emoji {
+  position: absolute;
+  z-index: 5;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.28));
+  transition: opacity 0.35s ease;
+  left: 50%;
+  top: 0;
+  font-size: clamp(46px, 15vw, 64px);
+  transform: translate(-50%, -50%) rotate(-5deg);
+  transform-origin: center bottom;
+}
+
+.frog-actor--level18 .frog-orange-emoji {
+  opacity: 1;
+}
+
+.frog-actor--level18 .frog-apple-emoji--head,
+.frog-actor--level18 .frog-apple-emoji--hand-l,
+.frog-actor--level18 .frog-apple-emoji--hand-r {
+  opacity: 0;
+}
+
 .frog-rig {
   width: 260px;
   height: 220px;
@@ -1928,6 +1954,17 @@ body {
   text-shadow: 0 3px 0 #6b1a3a, 0 0 22px rgba(255, 120, 160, 0.45);
 }
 
+/* 第18关：橙子 + 烟花文案 */
+.level-celebration--level18-start .level-celebration__text {
+  font-size: clamp(24px, 4.6vw, 40px);
+  line-height: 1.3;
+  max-width: 96vw;
+  padding: 0 14px;
+  word-break: break-word;
+  color: #fff3da;
+  text-shadow: 0 3px 0 #b65a00, 0 0 24px rgba(255, 170, 60, 0.55);
+}
+
 @keyframes fireworks-pop {
   0%, 100% { transform: scale(0.9); opacity: 0.8; }
   50% { transform: scale(1.14); opacity: 1; }
@@ -2423,4 +2460,132 @@ body {
     flex-direction: column;
     gap: 8px;
   }
+}
+
+/* —— 第18关 首字母补全 */
+.l18-zh {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1b5e20;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.l18-prompt {
+  font-size: 0.92rem;
+  color: #4e4e4e;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.l18-phrase-wrap {
+  display: block;
+  padding: 14px 12px 16px;
+  background: #fff;
+  border: 2px solid #c8e6c9;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  margin: 0 0 6px 0;
+  min-width: 0;
+}
+/* 整句英语一行展示；过长时在绿框内横向滑动，避免词被拆到下一行 */
+.l18-phrase-line {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.42em;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0 4px;
+  -webkit-overflow-scrolling: touch;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.35;
+}
+.l18-phrase-line::-webkit-scrollbar {
+  height: 6px;
+}
+.l18-phrase-line::-webkit-scrollbar-thumb {
+  background: #b2dfbc;
+  border-radius: 4px;
+}
+.l18-word-slot {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0;
+  flex: 0 0 auto;
+  margin: 0;
+  line-height: 1.25;
+  box-sizing: border-box;
+}
+.l18-hint {
+  color: #1565c0;
+  font-weight: 800;
+  /* 比填空区略大，并与后续字母用 baseline 对齐 */
+  font-size: 1.14rem;
+  line-height: 1.2;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+.l18-stub {
+  display: inline-block;
+  min-width: 1.2em;
+  box-sizing: border-box;
+  border-bottom: 2px solid #90a4ae;
+  margin: 0;
+  padding: 0 0 0;
+  line-height: 1.2;
+  vertical-align: baseline;
+  flex: 0 0 auto;
+}
+.l18-input {
+  display: block;
+  width: 100%;
+  min-width: 2ch;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  font-weight: 700;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  text-align: left;
+  padding: 0 0 1px 0;
+  margin: 0;
+  min-height: 0;
+  color: #111;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  vertical-align: baseline;
+}
+.l18-input:focus {
+  color: #0d47a1;
+}
+
+/* 第18关 环节1 看表情选词 */
+.l18-img-question {
+  text-align: center;
+  margin: 10px 0 6px;
+}
+.l18-emoji-pic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  min-height: 5.5rem;
+  padding: 0.4rem 0.6rem;
+  font-size: clamp(3.2rem, 12vw, 4.5rem);
+  line-height: 1;
+  border-radius: 16px;
+  border: 2px solid #c5e1a5;
+  background: #f1f8e9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  user-select: none;
 }

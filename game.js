@@ -17,7 +17,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
-  const MAX_LEVEL = 17;
+  const MAX_LEVEL = 18;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -311,10 +311,18 @@
   const preloadedAudioObjects = new Map();
   let lastAutoAudioText = "";
   let lastAutoAudioAt = 0;
+  const L18_ANSWER_AUDIO_RATE = 1.14;
+  const L18_ANSWER_TTS_RATE = 1.12;
 
-  function playAudioUrl(url) {
+  function playAudioUrl(url, playOpts) {
     return new Promise((resolve, reject) => {
       const a = new Audio(url);
+      const r = playOpts && Number(playOpts.playbackRate) > 0 ? Number(playOpts.playbackRate) : 1;
+      try {
+        a.playbackRate = r;
+      } catch (_) {
+        // ignore
+      }
       a.addEventListener("ended", resolve);
       a.addEventListener("error", reject);
       a.play().catch(reject);
@@ -367,14 +375,14 @@
     return urls;
   }
 
-  async function playEnglishAudio(text) {
+  async function playEnglishAudio(text, playOpts) {
     const raw = (text || "").trim();
     if (!raw) return null;
     const candidates = resolvedAudioByText.get(raw) || (await resolveHumanAudioCandidates(raw));
     if (!resolvedAudioByText.has(raw)) resolvedAudioByText.set(raw, candidates);
     for (const url of candidates) {
       try {
-        await playAudioUrl(url);
+        await playAudioUrl(url, playOpts);
         return true;
       } catch (_) {
         continue;
@@ -383,14 +391,14 @@
     return false;
   }
 
-  function speakFallback(text) {
+  function speakFallback(text, opts) {
     if (!window.speechSynthesis) return false;
     const raw = (text || "").trim();
     if (!raw) return false;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(raw);
     u.lang = "en-US";
-    u.rate = 0.95;
+    u.rate = opts && typeof opts.rate === "number" ? opts.rate : 0.95;
     window.speechSynthesis.speak(u);
     return true;
   }
@@ -439,6 +447,26 @@
     speakFallback("A+");
   }
 
+  function getLevel18AnswerSpeakText(step) {
+    if (!step) return "";
+    if (step.kind === "L18IMG" || step.kind === "L18C") return String(step.target || "").trim();
+    if (step.kind === "W3" && step.word) return String(step.word.en || "").trim();
+    if (step.kind === "L18F") return String(step.en || "").trim();
+    return "";
+  }
+
+  /** 第18关每题答对：朗读本题正确答案（略快、启动时已预缓外链） */
+  function playLevel18CorrectAnswerAudio(step) {
+    const text = getLevel18AnswerSpeakText(step);
+    if (!text) return;
+    const playOpts = { playbackRate: L18_ANSWER_AUDIO_RATE };
+    void (async () => {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      const ok = await playEnglishAudio(text, playOpts);
+      if (!ok) speakFallback(text, { rate: L18_ANSWER_TTS_RATE });
+    })();
+  }
+
   async function playEnglishAudioGuaranteed(text) {
     const raw = (text || "").trim();
     if (!raw) return false;
@@ -456,6 +484,38 @@
     return false;
   }
 
+  async function warmAndPreloadEnglishText(text) {
+    const raw = (text || "").trim();
+    if (!raw) return;
+    if (preloadedAudioObjects.has(raw)) return;
+    const candidates = await resolveHumanAudioCandidates(raw);
+    const verified = [];
+    for (const url of candidates) {
+      const ok = await new Promise((resolve) => {
+        const a = new Audio();
+        let done = false;
+        const finish = (v) => {
+          if (done) return;
+          done = true;
+          resolve(v);
+        };
+        a.addEventListener("canplaythrough", () => finish(true), { once: true });
+        a.addEventListener("error", () => finish(false), { once: true });
+        setTimeout(() => finish(false), 2200);
+        a.src = url;
+        a.load();
+      });
+      if (ok) verified.push(url);
+    }
+    const finalList = verified.length ? verified : candidates;
+    resolvedAudioByText.set(raw, finalList);
+    if (!finalList.length) return;
+    const a = new Audio(finalList[0]);
+    a.preload = "auto";
+    a.load();
+    preloadedAudioObjects.set(raw, a);
+  }
+
   async function preloadHumanAudio() {
     const texts = new Set();
     WORDS.forEach((w) => {
@@ -463,32 +523,17 @@
       texts.add(w.sentenceEn);
     });
     for (const text of texts) {
-      const candidates = await resolveHumanAudioCandidates(text);
-      const verified = [];
-      for (const url of candidates) {
-        const ok = await new Promise((resolve) => {
-          const a = new Audio();
-          let done = false;
-          const finish = (v) => {
-            if (done) return;
-            done = true;
-            resolve(v);
-          };
-          a.addEventListener("canplaythrough", () => finish(true), { once: true });
-          a.addEventListener("error", () => finish(false), { once: true });
-          setTimeout(() => finish(false), 2200);
-          a.src = url;
-          a.load();
-        });
-        if (ok) verified.push(url);
-      }
-      const finalList = verified.length ? verified : candidates;
-      resolvedAudioByText.set(text, finalList);
-      if (!finalList.length) continue;
-      const a = new Audio(finalList[0]);
-      a.preload = "auto";
-      a.load();
-      preloadedAudioObjects.set(text, a);
+      await warmAndPreloadEnglishText(text);
+    }
+  }
+
+  /** 第18关可能朗读的全部词/句：启动时预拉取，答对时播放更快 */
+  async function preloadLevel18AnswerAudio() {
+    const texts = new Set();
+    L18_VOCAB.forEach((w) => texts.add(w.en));
+    L18_PHRASE_ROWS.forEach((r) => texts.add(r.en));
+    for (const text of texts) {
+      await warmAndPreloadEnglishText(text);
     }
   }
 
@@ -1717,6 +1762,140 @@
     });
   }
 
+  /** 第18关·环节1：用表情（emoji）当图，避免外链图片 */
+  const L18_PICTURE_EMOJI = {
+    run: "🏃",
+    best: "🥇",
+    rule: "📋",
+    turn: "🔁",
+    speak: "🎤",
+    give: "🤲",
+    away: "📦",
+    must: "✅",
+    need: "💧",
+    top: "⛰️",
+    talk: "💬",
+    exercise: "🏋️",
+    clean: "🧹",
+    arrive: "🛬",
+  };
+
+  /**
+   * 第18关·环节1：14 个核心词。
+   */
+  const L18_VOCAB = [
+    { en: "run", zh: "跑；奔跑" },
+    { en: "best", zh: "最好" },
+    { en: "rule", zh: "规则" },
+    { en: "turn", zh: "轮流；依次" },
+    { en: "speak", zh: "说话" },
+    { en: "give", zh: "给" },
+    { en: "away", zh: "离开；收好" },
+    { en: "must", zh: "必须" },
+    { en: "need", zh: "需要" },
+    { en: "top", zh: "顶部" },
+    { en: "talk", zh: "交谈" },
+    { en: "exercise", zh: "锻炼" },
+    { en: "clean", zh: "弄干净" },
+    { en: "arrive", zh: "到达" },
+  ];
+
+  /** 与 buildLevel18Steps 环节2 一致，供预缓朗读音频 */
+  const L18_PHRASE_ROWS = [
+    { zh: "班规", en: "classroom rules" },
+    { zh: "轮流说话", en: "take turns to speak" },
+    { zh: "尽自己最大努力", en: "do your best" },
+    { zh: "收拾好自己的东西", en: "put away your things" },
+    { zh: "仔细听", en: "listen carefully" },
+    { zh: "面对说话者", en: "face the speaker" },
+    { zh: "保持安静", en: "keep quiet" },
+    { zh: "不要在教室里奔跑", en: "don't run in the classroom" },
+    { zh: "向别人伸出援手", en: "give a helping hand" },
+    { zh: "用语得体", en: "say nice words" },
+    { zh: "请你/您先", en: "you first" },
+  ];
+
+  function l18VocabEnSet() {
+    return L18_VOCAB.map((x) => x.en);
+  }
+
+  function l18PickWrongEn(target, n) {
+    const t = String(target).toLowerCase();
+    return shuffle(l18VocabEnSet().filter((w) => w.toLowerCase() !== t)).slice(0, n);
+  }
+
+  /** 环节1·填漏：每词随机抽若干“挖空位”，避免长词过题过多 */
+  function buildL18LetterTasksForWord(en) {
+    const low = String(en || "").toLowerCase();
+    if (!low) return [];
+    const w = { en: low };
+    const all = buildMissingLetterTasks(w);
+    const nLetters = low.length;
+    const base = all.slice(0, nLetters);
+    const k = Math.min(4, Math.max(2, nLetters <= 3 ? nLetters : 3));
+    return shuffle(base).slice(0, k);
+  }
+
+  function buildL18VocabL18Img(w, i, n) {
+    const key = String(w.en || "").toLowerCase();
+    return {
+      kind: "L18IMG",
+      cat: "word",
+      title: "第18关·环节1 · 看表情选词 " + (i + 1) + " / " + n,
+      target: w.en,
+      l18Pic: L18_PICTURE_EMOJI[key] || "❓",
+      options: shuffle([w.en, ...l18PickWrongEn(w.en, 3)]),
+    };
+  }
+
+  function buildL18VocabL18C(w, i, n) {
+    return {
+      kind: "L18C",
+      cat: "word",
+      title: "第18关·环节1 · 中译英 " + (i + 1) + " / " + n,
+      promptZh: w.zh,
+      target: w.en,
+      options: shuffle([w.en, ...l18PickWrongEn(w.en, 3)]),
+    };
+  }
+
+  function buildL18VocabW3(w, i, n) {
+    return {
+      kind: "W3",
+      cat: "word",
+      title: "第18关·环节1 · 补字母 " + (i + 1) + " / " + n,
+      word: { en: w.en },
+      tasks: buildL18LetterTasksForWord(w.en),
+    };
+  }
+
+  function buildL18FPhraseRow(p, i, total) {
+    return {
+      kind: "L18F",
+      cat: "word",
+      title: "第18关·环节2 · 首字母补全 " + (i + 1) + " / " + total,
+      zh: p.zh,
+      en: p.en,
+      words: p.en.toLowerCase().split(/\s+/).filter(Boolean),
+    };
+  }
+
+  /**
+   * 第18关：环节1 三轮（看表情选词+中译英+补字母各14题）+ 环节2 短语首字母；短语每条只出现一次。
+   */
+  function buildLevel18Steps() {
+    const steps = [];
+    const order = shuffle(L18_VOCAB.slice());
+    const nV = order.length;
+    const phraseRows = L18_PHRASE_ROWS;
+    const nP = phraseRows.length;
+    for (let i = 0; i < nV; i += 1) steps.push(buildL18VocabL18Img(order[i], i, nV));
+    for (let i = 0; i < nV; i += 1) steps.push(buildL18VocabL18C(order[i], i, nV));
+    for (let i = 0; i < nV; i += 1) steps.push(buildL18VocabW3(order[i], i, nV));
+    for (let i = 0; i < nP; i += 1) steps.push(buildL18FPhraseRow(phraseRows[i], i, nP));
+    return steps;
+  }
+
   function buildLevels() {
     const levels = [];
     const joinWord = WORDS.find((w) => w.en === "join");
@@ -1725,6 +1904,8 @@
       let steps;
       if (lv === 7 || lv === 8) {
         steps = buildReviewLevelSteps(lv, w1, w2);
+      } else if (lv === 18) {
+        steps = buildLevel18Steps();
       } else if (lv === 17) {
         steps = buildLevel17Steps();
       } else if (lv === 16) {
@@ -1946,8 +2127,6 @@
   let autoAdvancing = false;
   let autoAdvanceTimer = null;
   let autoRetryTimer = null;
-  /** 当前环节累计答错次数；第二次答错则重闯本关（任意关卡） */
-  let wrongAttemptsOnCurrentStep = 0;
   let lastRenderedLevel = null;
   let levelStartCelebrationShown = null;
   let teacherAccessUnlocked = false;
@@ -2632,19 +2811,6 @@
     markWrong() {
       if (this.graded) return;
       this.hadWrong = true;
-      wrongAttemptsOnCurrentStep += 1;
-      const maxWrongBeforeRestart = state.currentLevel === 15 ? 3 : 2;
-      if (wrongAttemptsOnCurrentStep >= maxWrongBeforeRestart) {
-        wrongAttemptsOnCurrentStep = 0;
-        if (autoRetryTimer) {
-          clearTimeout(autoRetryTimer);
-          autoRetryTimer = null;
-        }
-        showRetryEncouragement();
-        syncActionBar();
-        restartCurrentLevelAfterTooManyWrongs();
-        return;
-      }
       showRetryEncouragement();
       syncActionBar();
       if (autoRetryTimer) return;
@@ -2656,7 +2822,6 @@
     markCorrect() {
       if (this.isCorrect) return;
       this.isCorrect = true;
-      wrongAttemptsOnCurrentStep = 0;
       const step = currentStep();
       if (state.currentLevel === 15 && step && step.kind === "CLZ") {
         showLevel15ClozeGeniusPraise();
@@ -2666,6 +2831,9 @@
       } else if (state.currentLevel === 16 && step && isLevel16PraiseStepKind(step.kind)) {
         speakLevel16GuaguaThenStepPass();
         if (!this.hadWrong && !this.graded) showPraise();
+      } else if (state.currentLevel === 18) {
+        playLevel18CorrectAnswerAudio(step);
+        if (!this.hadWrong && !this.graded) showPraise({ noDing: true });
       } else {
         const speakText = getAutoSpeakText(step);
         if (speakText) {
@@ -2709,6 +2877,8 @@
   function getAutoSpeakText(step) {
     if (!step) return "";
     if (step.kind && step.kind.indexOf("L17") === 0) return "";
+    if (step.kind === "L18F" || step.kind === "L18IMG" || step.kind === "L18C") return "";
+    if (state.currentLevel === 18 && step.kind === "W3") return "";
     if (step.kind === "CLZ") return "";
     if (state.currentLevel === 14 && step.passage) return "";
     if (state.currentLevel === 12) {
@@ -2767,6 +2937,7 @@
     if (frogActor) {
       frogActor.classList.toggle("frog-actor--level16", state.currentLevel === 16);
       frogActor.classList.toggle("frog-actor--level17", state.currentLevel === 17);
+      frogActor.classList.toggle("frog-actor--level18", state.currentLevel === 18);
     }
     if (frogNameTag) frogNameTag.textContent = playerName || "小青蛙";
     upsertCurrentPlayerScore();
@@ -2809,8 +2980,9 @@
     btnContinue.disabled = !stepStatus.isCorrect;
   }
 
-  function showPraise() {
-    playDingDong();
+  function showPraise(opts) {
+    const noDing = opts && opts.noDing;
+    if (!noDing) playDingDong();
     frogActor.dataset.mood = "nod";
     sparkleBurst.classList.add("sparkle-burst--on");
     praisePop.textContent = PRAISE_LINES[Math.floor(Math.random() * PRAISE_LINES.length)];
@@ -2834,17 +3006,6 @@
       sparkleBurst.classList.remove("sparkle-burst--on");
       praisePop.classList.add("praise-pop--hidden");
     }, 1100);
-  }
-
-  function restartCurrentLevelAfterTooManyWrongs() {
-    state.currentStepIndex = 0;
-    saveState(state);
-    const tip =
-      state.currentLevel === 15 ? "🎆 错三次啦，从头重闯本关！" : "🎆 错两次啦，从头重闯本关！";
-    showCelebrationOverlay(tip, { duration: 1750, milestone: true });
-    runEyeFlash(() => {
-      renderCurrentStep();
-    });
   }
 
   function showRetryEncouragement() {
@@ -2889,6 +3050,15 @@
       });
       return;
     }
+    if (state.currentLevel === 18) {
+      levelStartCelebrationShown = state.currentLevel;
+      showCelebrationOverlay("🎆 恭喜进入第18关！蛙蛙吃上橙子了🍊", {
+        duration: 2400,
+        milestone: true,
+        extraClass: "level-celebration--level18-start",
+      });
+      return;
+    }
     const text = LEVEL_START_CELEBRATIONS[state.currentLevel];
     if (!text) return;
     levelStartCelebrationShown = state.currentLevel;
@@ -2898,6 +3068,23 @@
   let level16EyeIntroTimer = null;
   let level16EyeSparkleTimer = null;
   let level16EyeSparkleOffTimer = null;
+  let level18OrangeSparkleTimer = null;
+
+  /** 第18关本关第1环节：角色区星闪，配合头顶橙子与全屏烟花 */
+  function maybePlayLevel18OrangeIntro() {
+    if (level18OrangeSparkleTimer) {
+      clearTimeout(level18OrangeSparkleTimer);
+      level18OrangeSparkleTimer = null;
+    }
+    if (state.currentLevel !== 18 || state.currentStepIndex !== 0) return;
+    if (sparkleBurst) {
+      sparkleBurst.classList.add("sparkle-burst--on");
+      level18OrangeSparkleTimer = setTimeout(() => {
+        level18OrangeSparkleTimer = null;
+        if (sparkleBurst) sparkleBurst.classList.remove("sparkle-burst--on");
+      }, 1500);
+    }
+  }
 
   function maybePlayLevel16EyeIntro() {
     if (!characterArea) return;
@@ -3024,7 +3211,6 @@
           if (to === state.currentStepIndex) return;
           state.currentStepIndex = to;
           currentStepResult = null;
-          wrongAttemptsOnCurrentStep = 0;
           saveState(state);
           runEyeFlash(renderCurrentStep);
         });
@@ -3196,6 +3382,160 @@
         .replace(/[“”`]/g, '"')
         .replace(/\s+/g, " ");
     return norm(a) === norm(b);
+  }
+
+  function normL18Token(s) {
+    return String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[’`]/g, "'");
+  }
+
+  function renderL18Img(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt prompt--sub", "看表情，选择正确的英文单词"));
+    const box = el("div", "l18-img-question", "");
+    const pic = el("div", "l18-emoji-pic", String(step.l18Pic || "❓"));
+    pic.setAttribute("role", "img");
+    pic.setAttribute("aria-label", "与本题相关的表情");
+    box.appendChild(pic);
+    root.appendChild(box);
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn", opt);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+        if (isAcceptedOption(step, opt)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => revealKey(answerKey, "<strong>正确答案：</strong> " + (step.target || "")));
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function renderL18C(step) {
+    renderHeader(step);
+    const zh = String(step.promptZh || "").trim();
+    root.appendChild(el("div", "prompt prompt--sub", "会为你读出中文，也可点喇叭重播"));
+    root.appendChild(el("div", "prompt", zh));
+    const zline = el("div", "audio-row");
+    const zbtn = el("button", "btn-audio btn-audio--blue", "🔊");
+    zbtn.type = "button";
+    zbtn.setAttribute("aria-label", "重播中文");
+    zbtn.addEventListener("click", () => speakChineseTTS(zh));
+    zline.appendChild(zbtn);
+    root.appendChild(zline);
+    setTimeout(() => {
+      if (zh) speakChineseTTS(zh);
+    }, 120);
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn", opt);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+        if (isAcceptedOption(step, opt)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => revealKey(answerKey, "<strong>正确答案：</strong> " + (step.target || "")));
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function renderL18F(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l18-zh", step.zh));
+    root.appendChild(
+      el("div", "l18-prompt", "（环节2）根据中文，在横线上补全每词首字母之后的内容。")
+    );
+    const box = el("div", "l18-phrase-wrap", "");
+    const line = el("div", "l18-phrase-line", "");
+    const words = step.words || [];
+    const fields = [];
+    words.forEach((w, wi) => {
+      const full = String(w);
+      if (!full) return;
+      const first = full[0];
+      const rest = full.length > 1 ? full.slice(1) : "";
+      const slot = el("div", "l18-word-slot", "");
+      slot.appendChild(el("span", "l18-hint", first));
+      if (rest) {
+        const stub = el("div", "l18-stub", "");
+        const inp = document.createElement("input");
+        inp.className = "l18-input";
+        inp.type = "text";
+        inp.autocomplete = "off";
+        inp.spellcheck = false;
+        inp.maxLength = rest.length;
+        inp.setAttribute("aria-label", "补全第 " + (wi + 1) + " 个单词在首字 " + first + " 之后的内容");
+        const wch = Math.max(2, Math.min(24, rest.length));
+        inp.style.width = wch + "ch";
+        inp.style.minWidth = wch + "ch";
+        inp.style.maxWidth = wch + "ch";
+        stub.appendChild(inp);
+        slot.appendChild(stub);
+        fields.push({ inp, full });
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            checkL18();
+          }
+        });
+      } else {
+        fields.push({ inp: null, full });
+      }
+      line.appendChild(slot);
+    });
+    box.appendChild(line);
+    root.appendChild(box);
+    const answerKey = createAnswerKey();
+    const btn = el("button", "btn-primary", "提交检查");
+    btn.type = "button";
+    function checkL18() {
+      if (stepStatus.graded || stepStatus.isCorrect) return;
+      for (let i = 0; i < fields.length; i += 1) {
+        const { inp, full } = fields[i];
+        const rest = full.length > 1 ? full.slice(1) : "";
+        let built;
+        if (!rest) {
+          built = full[0] || "";
+        } else {
+          built = (full[0] || "") + String((inp && inp.value) || "").trim();
+        }
+        if (normL18Token(built) !== normL18Token(full)) {
+          stepStatus.markWrong();
+          return;
+        }
+      }
+      stepStatus.markCorrect();
+    }
+    btn.addEventListener("click", checkL18);
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>参考答案：</strong> " + (step.en || ""));
+    });
+    root.appendChild(btn);
+    root.appendChild(answerKey);
   }
 
   function renderL17A(step) {
@@ -4691,6 +5031,9 @@
     L17E: renderL17E,
     L17F: (s) => renderSentenceBuilder(s, false),
     L17MT: renderL17ImageMatch,
+    L18IMG: renderL18Img,
+    L18C: renderL18C,
+    L18F: renderL18F,
   };
 
   function renderCurrentStep() {
@@ -4711,7 +5054,6 @@
     if (lastRenderedLevel !== state.currentLevel) {
       lastRenderedLevel = state.currentLevel;
       levelStartCelebrationShown = null;
-      wrongAttemptsOnCurrentStep = 0;
     }
     syncLevelPlayBumpForStep0Session();
     root.classList.toggle("challenge-zone--yellow", state.currentLevel >= 7);
@@ -4719,6 +5061,7 @@
     maybeAutoSpeakLevel12Question(step);
     maybeShowLevelStartCelebration();
     maybePlayLevel16EyeIntro();
+    maybePlayLevel18OrangeIntro();
   }
 
   function goNextStep(force) {
@@ -5183,7 +5526,6 @@
 
   if (btnRetryLevel) {
     btnRetryLevel.addEventListener("click", () => {
-      wrongAttemptsOnCurrentStep = 0;
       renderCurrentStep();
     });
   }
@@ -5229,7 +5571,9 @@
   }
 
   refreshLeaderboardFromCloud();
-  preloadHumanAudio();
+  void Promise.all([preloadHumanAudio(), preloadLevel18AnswerAudio()]).catch(function () {
+    // 预拉取失败不阻断游戏
+  });
   updateHud();
   ensurePlayerNameBeforeStart();
 })();
