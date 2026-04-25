@@ -7,6 +7,7 @@
     unlocked: "frogKing_u4_unlocked",
     lastLevel: "frogKing_u4_lastLevel",
     stepIndex: "frogKing_u4_stepIndex",
+    levelCheckpoints: "frogKing_u4_levelCheckpoints",
     playerName: "frogKing_u4_playerName",
     leaderboard: "frogKing_u4_leaderboard",
     playerId: "frogKing_u4_playerId",
@@ -218,14 +219,73 @@
     return {
       stars: clampStarsToCap(loadNumber(STORAGE_KEYS.stars, 0)),
       crowns: loadNumber(STORAGE_KEYS.crowns, 0),
-      unlockedLevel: Math.min(MAX_LEVEL, Math.max(1, loadNumber(STORAGE_KEYS.unlocked, 1))),
+      unlockedLevel: Math.min(MAX_LEVEL, Math.max(1, loadNumber(STORAGE_KEYS.unlocked, MAX_LEVEL))),
       currentLevel: Math.min(MAX_LEVEL, Math.max(1, loadNumber(STORAGE_KEYS.lastLevel, 1))),
       currentStepIndex: Math.max(0, loadNumber(STORAGE_KEYS.stepIndex, 0)),
     };
   }
 
+  function loadLevelCheckpointsObject() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.levelCheckpoints) || "{}";
+      const o = JSON.parse(raw);
+      return o && typeof o === "object" && !Array.isArray(o) ? o : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  let levelCheckpointById = loadLevelCheckpointsObject();
+
+  function persistLevelCheckpoints() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.levelCheckpoints, JSON.stringify(levelCheckpointById));
+    } catch (_) {}
+  }
+
+  function getCheckpointForLevelId(level) {
+    const v = levelCheckpointById[String(level)];
+    if (v == null) return null;
+    const n = parseInt(String(v), 10);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function setCheckpointForLevelId(level, stepIdx) {
+    levelCheckpointById[String(level)] = stepIdx;
+    persistLevelCheckpoints();
+  }
+
+  function clearCheckpointForLevelId(level) {
+    delete levelCheckpointById[String(level)];
+    persistLevelCheckpoints();
+  }
+
+  function clampStepIndexForLevel(level, step) {
+    const L = LEVELS[level - 1];
+    if (!L || !L.steps || L.steps.length === 0) return 0;
+    return Math.min(L.steps.length - 1, Math.max(0, step));
+  }
+
+  function resolveStepIndexWhenPickingLevel(targetLevel) {
+    const cp = getCheckpointForLevelId(targetLevel);
+    if (cp != null) {
+      return clampStepIndexForLevel(targetLevel, cp);
+    }
+    return 0;
+  }
+
+  function applyLevelChoiceInUi(targetLevel) {
+    if (state.currentLevel === targetLevel) return;
+    state.currentLevel = targetLevel;
+    state.currentStepIndex = resolveStepIndexWhenPickingLevel(targetLevel);
+    currentStepResult = null;
+    saveState(state);
+    renderCurrentStep();
+  }
+
   function saveState(state) {
     state.stars = clampStarsToCap(state.stars);
+    state.unlockedLevel = MAX_LEVEL;
     localStorage.setItem(STORAGE_KEYS.stars, String(state.stars));
     localStorage.setItem(STORAGE_KEYS.crowns, String(state.crowns));
     localStorage.setItem(STORAGE_KEYS.unlocked, String(state.unlockedLevel));
@@ -1972,6 +2032,7 @@
   const root = document.getElementById("challenge-root");
   const btnContinue = document.getElementById("btn-continue");
   const btnRetryLevel = document.getElementById("btn-retry-level");
+  const btnPauseLevel = document.getElementById("btn-pause-level");
   const btnLevelPicker = document.getElementById("btn-level-picker");
   const btnLeaderboard = document.getElementById("btn-leaderboard");
   const btnSetPin = document.getElementById("btn-set-pin");
@@ -2032,6 +2093,7 @@
   const levelCelebrationText = document.getElementById("level-celebration-text");
 
   let state = loadState();
+  state.unlockedLevel = MAX_LEVEL;
   let playerId = loadPlayerId();
   let playerName = loadPlayerName();
   let leaderboard = loadLeaderboard();
@@ -2192,7 +2254,7 @@
   function renderRoute() {
     if (!stoneRoute) return;
     stoneRoute.innerHTML = "";
-    const max = Math.max(1, state.unlockedLevel);
+    const max = MAX_LEVEL;
     for (let i = 1; i <= max; i++) {
       const b = el("button", "stone-node", "第" + i + "关");
       const sideCls = i % 2 === 0 ? "stone-node--right" : "stone-node--left";
@@ -2205,11 +2267,7 @@
       if (i === state.currentLevel) b.classList.add("stone-node--current");
       b.type = "button";
       b.addEventListener("click", () => {
-        state.currentLevel = i;
-        state.currentStepIndex = 0;
-        currentStepResult = null;
-        saveState(state);
-        renderCurrentStep();
+        applyLevelChoiceInUi(i);
       });
       stoneRoute.appendChild(b);
       if (i < max) {
@@ -2450,8 +2508,8 @@
   }
 
   function normalizeProgressState(raw) {
-    const unlocked = Math.min(MAX_LEVEL, Math.max(1, Number(raw && raw.unlockedLevel) || 1));
-    const current = Math.min(unlocked, Math.max(1, Number(raw && raw.currentLevel) || 1));
+    const unlocked = MAX_LEVEL;
+    const current = Math.min(MAX_LEVEL, Math.max(1, Number(raw && raw.currentLevel) || 1));
     const step = Math.max(0, Number(raw && raw.currentStepIndex) || 0);
     return {
       stars: Math.max(0, Number(raw && raw.stars) || 0),
@@ -2543,7 +2601,7 @@
     const local = normalizeProgressState(state);
     state.stars = clampStarsToCap(Math.max(local.stars, cloudState.stars));
     state.crowns = Math.max(local.crowns, cloudState.crowns);
-    state.unlockedLevel = Math.max(local.unlockedLevel, cloudState.unlockedLevel);
+    state.unlockedLevel = MAX_LEVEL;
     if (cloudState.currentLevel > local.currentLevel) {
       state.currentLevel = cloudState.currentLevel;
       state.currentStepIndex = cloudState.currentStepIndex;
@@ -2975,8 +3033,10 @@
   function syncActionBar() {
     if (currentStepResult === "level" || currentStepResult === "done") {
       btnContinue.disabled = false;
+      if (btnPauseLevel) btnPauseLevel.disabled = true;
       return;
     }
+    if (btnPauseLevel) btnPauseLevel.disabled = false;
     btnContinue.disabled = !stepStatus.isCorrect;
   }
 
@@ -3141,6 +3201,7 @@
   }
 
   function finishLevel() {
+    clearCheckpointForLevelId(state.currentLevel);
     state.crowns += 1;
     state.unlockedLevel = Math.max(state.unlockedLevel, Math.min(MAX_LEVEL, state.currentLevel + 1));
     saveState(state);
@@ -5496,15 +5557,10 @@
     for (let i = 1; i <= MAX_LEVEL; i++) {
       const b = el("button", "level-btn", String(i));
       b.type = "button";
-      if (i > state.unlockedLevel) b.disabled = true;
       if (i === state.currentLevel) b.classList.add("level-btn--current");
       b.addEventListener("click", () => {
-        state.currentLevel = i;
-        state.currentStepIndex = 0;
-        currentStepResult = null;
-        saveState(state);
+        applyLevelChoiceInUi(i);
         modal.classList.add("modal-overlay--hidden");
-        renderCurrentStep();
       });
       levelGrid.appendChild(b);
     }
@@ -5526,7 +5582,24 @@
 
   if (btnRetryLevel) {
     btnRetryLevel.addEventListener("click", () => {
+      state.currentStepIndex = 0;
+      clearCheckpointForLevelId(state.currentLevel);
+      currentStepResult = null;
+      saveState(state);
       renderCurrentStep();
+    });
+  }
+  if (btnPauseLevel) {
+    btnPauseLevel.addEventListener("click", () => {
+      setCheckpointForLevelId(state.currentLevel, state.currentStepIndex);
+      saveState(state);
+      if (praisePop) {
+        praisePop.textContent = "已记录暂停。下次在「选关/石头路」进入本关，将从本环节继续。";
+        praisePop.classList.remove("praise-pop--hidden");
+        setTimeout(function () {
+          if (praisePop) praisePop.classList.add("praise-pop--hidden");
+        }, 2500);
+      }
     });
   }
 

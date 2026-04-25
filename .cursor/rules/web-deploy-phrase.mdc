@@ -1,0 +1,20 @@
+---
+description: 当用户说「更新到网页版」时发 Git 推送命令（触达 Netlify）
+alwaysApply: true
+---
+
+# 更新到网页版（青蛙大王 → GitHub → Netlify）
+
+当用户说 **「更新到网页版」**、**【更新到网页版】** 或同义表达（要一键把本地游戏推上网）时：
+
+1. **不要**长解释部署原理；**直接**回复一段可复制的 **zsh/bash 命令**（用 markdown 代码块，单独一行可粘贴进终端）。
+2. 使用项目路径：`/Users/kaia/Desktop/frog-king-game`（若用户仓库路径不同，以其说明为准）。
+3. 使用下面这条**默认**一键脚本（有改动才提交；无改动则只提示；推送触发 Netlify）：
+
+```bash
+cd /Users/kaia/Desktop/frog-king-game && git add -A && if git diff --staged --quiet; then echo "没有需要提交的修改"; else git commit -m "update $(date '+%Y-%m-%d %H:%M')" && git push; fi
+```
+
+4. 在代码块**下方**可附一行提醒：需已配置 GitHub 身份；`git push` 失败时看终端错误（分支名、登录等）。不要展开成教程，除非用户追问。
+
+5. 若用户在同一消息里**同时**要求做代码修改，先完成改代码/保存，再发上述命令，或说明「保存文件后」再执行该命令。
