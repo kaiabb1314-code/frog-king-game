@@ -18,7 +18,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
-  const MAX_LEVEL = 18;
+  const MAX_LEVEL = 20;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -525,6 +525,33 @@
       const ok = await playEnglishAudio(text, playOpts);
       if (!ok) speakFallback(text, { rate: L18_ANSWER_TTS_RATE });
     })();
+  }
+
+  /** 第19–20关：每选对一小题立刻朗读该题英文答案（与第18关相近的语速，不走 Guaranteed 去重以免连续相同词被吞） */
+  function playL19L20SubAnswerEnglish(text) {
+    const raw = String(text || "").trim();
+    if (!raw) return;
+    const playOpts = { playbackRate: L18_ANSWER_AUDIO_RATE };
+    void (async () => {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      const ok = await playEnglishAudio(raw, playOpts);
+      if (!ok) speakFallback(raw, { rate: L18_ANSWER_TTS_RATE });
+    })();
+  }
+
+  function l19L20TfSpeakWord(tf) {
+    const u = String(tf || "").trim().toUpperCase();
+    if (u === "T") return "true";
+    if (u === "F") return "false";
+    return "";
+  }
+
+  function stripParenHintsForEnglishAudio(s) {
+    return String(s || "")
+      .replace(/\s*（[^）]*）\s*/g, " ")
+      .replace(/\s*\([^)]*\)\s*/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   async function playEnglishAudioGuaranteed(text) {
@@ -1956,6 +1983,343 @@
     return steps;
   }
 
+  /** 第19关：看图选短语填空（一大题一页） */
+  function buildLevel19Steps() {
+    const phrasePool = ["pack my schoolbag", "watch TV", "read books", "comb my hair", "play sports"];
+    return [
+      {
+        kind: "L19B1",
+        cat: "phrase",
+        title: "看看蛙蛙学到了多少～",
+        prompt: "依据图片，送短语回家。",
+        image: "assets/u6/l19-big1-worksheet.png",
+        phrasePool,
+        items: [
+          { label: "1", before: "—What time do you ", after: " ? —At 7:30 p.m.", target: "watch TV" },
+          { label: "2", before: "I never forget to ", after: " before I go to school.", target: "comb my hair" },
+          { label: "3", before: "After dinner I often ", after: " from 7:00 to 8:00.", target: "read books" },
+          { label: "4", before: "I ", after: " at 9:00. Then, I go to bed.", target: "pack my schoolbag" },
+          { label: "5", before: "It's 3:30. It's time to ", after: "", target: "play sports" },
+        ],
+      },
+      {
+        kind: "L19B2",
+        cat: "match",
+        title: "看看蛙蛙学到了多少～",
+        prompt: "图文匹配。",
+        image: "assets/u6/l19-big2-match.png",
+        letterPool: ["A", "B", "C", "D", "E"],
+        items: [
+          { label: "1", text: "I go to school in a hurry.", target: "C" },
+          { label: "2", text: "It is seven o'clock. It's time to get up.", target: "A" },
+          { label: "3", text: "It's time to go to bed.", target: "D" },
+          { label: "4", text: "Let's go. It's time to have class.", target: "E" },
+          { label: "5", text: "It's half past seven. Time for breakfast.", target: "B" },
+        ],
+      },
+      {
+        kind: "L19B3",
+        cat: "tf",
+        title: "看看蛙蛙学到了多少～",
+        prompt: "判断图文对错，相同写 T，不同写 F。",
+        image: "assets/u6/l19-big3-tf.png",
+        tfPool: ["T", "F"],
+        items: [
+          { label: "1", text: "It's time to go to bed.", target: "F" },
+          {
+            label: "2",
+            text: 'Ben: Do you want to try? Jack: Sorry. Basketball is just not my thing.',
+            target: "T",
+          },
+          { label: "3", text: "Let's play basketball together.", target: "F" },
+          { label: "4", text: "Can I join you? I'd like to play sports with you.", target: "F" },
+          {
+            label: "5",
+            text: "Boy: Skipping rope is fun. Can I have a try? Girl: Sure! Let's play together.",
+            target: "T",
+          },
+        ],
+      },
+      {
+        kind: "L19B4",
+        cat: "match",
+        title: "看看蛙蛙学到了多少～",
+        prompt: "图文匹配。（对照上图，每题选 A / B / C）",
+        image: "assets/u6/l19-big4-match.png",
+        items: [
+          {
+            label: "1",
+            target: "B",
+            choices: [
+              { key: "A", text: "It's time to have breakfast." },
+              { key: "B", text: "Oh, no! Half past seven. I'm late." },
+              { key: "C", text: "It's time for bed." },
+            ],
+          },
+          {
+            label: "2",
+            target: "C",
+            choices: [
+              { key: "A", text: "Sure! That looks like fun." },
+              { key: "B", text: "Yes, I'd love to! Thanks!" },
+              { key: "C", text: "No, thanks! Basketball is just not my thing." },
+            ],
+          },
+          {
+            label: "3",
+            target: "B",
+            choices: [
+              { key: "A", text: "We have breakfast at twelve ten." },
+              { key: "B", text: "We have lunch at twelve." },
+              { key: "C", text: "It's time for dinner." },
+            ],
+          },
+          {
+            label: "4",
+            target: "A",
+            choices: [
+              { key: "A", text: "The music club is from three to half past four." },
+              { key: "B", text: "The basketball club is for half an hour." },
+              { key: "C", text: "The music club is in the music room." },
+            ],
+          },
+          {
+            label: "5",
+            target: "A",
+            choices: [
+              { key: "A", text: "I go to bed at eight forty." },
+              { key: "B", text: "I get up at eight forty." },
+              { key: "C", text: "I go to bed at nine forty." },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "L19B5",
+        cat: "dialogue",
+        title: "看看蛙蛙学到了多少～",
+        prompt: "送句子回到自己的位置上。",
+        intro: "Peter: Hello, Alice. Do you want to play football with me?",
+        footer: "Alice: Of course. Let's go.",
+        letterPool: ["A", "B", "C", "D", "E"],
+        choiceTexts: {
+          A: "I go home at six forty.",
+          B: "We can play football from 5:00 to 6:30.",
+          C: "Sure, I'd love to.",
+          D: "Then we can go home together.",
+          E: "I can teach you.",
+        },
+        items: [
+          { label: "1", speaker: "Alice", before: "", after: " But I can't play football well.", target: "C" },
+          { label: "2", speaker: "Peter", before: "Don't worry. ", after: "", target: "E" },
+          { label: "3", speaker: "Alice", before: "Thank you. ", after: "", target: "D" },
+          {
+            label: "4",
+            speaker: "Alice",
+            before: "",
+            after: "",
+            target: "A",
+            prevLine: "Peter: What time do you go home?",
+          },
+          { label: "5", speaker: "Peter", before: "", after: " Can we begin now?", target: "B" },
+        ],
+      },
+      {
+        kind: "L19B6",
+        cat: "reading_tf",
+        title: "看看蛙蛙学到了多少～",
+        prompt: "读文本，判断对错，对的写 T，不对的写 F。",
+        passage:
+          "Feb.23,Sunday\n" +
+          "Sunny\n\n" +
+          "Today is my first day in the new school. I have a really happy time . I get up at seven . Then , I go to school at half past seven .We usually have class at eight twenty . After that , we play sports for half an hour. I like the exercise time. I have lunch at 12:10 with my classmates. After school, I play football with Tony. We go home at six forty . I have dinner with my family at 7:00 at home. Then I watch TV from 7:30 to 7:45. After that, I read books with my sister for one hour. Now it's 9:20. It's time to sleep.",
+        tfPool: ["T", "F"],
+        items: [
+          { label: "1", text: "Alice is new at this school.", target: "T" },
+          { label: "2", text: "Alice has lunch at 12:10 with her classmates.", target: "T" },
+          {
+            label: "3",
+            text: "Football is just not Alice's thing, so she doesn't play it with Tony.",
+            target: "F",
+          },
+          { label: "4", text: "Alice has dinner at seven thirty at home.", target: "F" },
+          { label: "5", text: "Alice reads books with her brother for half an hour.", target: "F" },
+        ],
+      },
+    ];
+  }
+
+  /** 第20关：U1/U2 复习等 */
+  function buildLevel20Steps() {
+    return [
+      {
+        kind: "L20B1",
+        cat: "grammar",
+        title: "你的蛙蛙还记得U1/U2学了什么吗？",
+        prompt: "填单词。",
+        items: [
+          {
+            label: "1",
+            stem: "I _______ my face every morning.",
+            target: "A",
+            choices: [
+              { key: "A", text: "wash" },
+              { key: "B", text: "washes" },
+              { key: "C", text: "washing" },
+            ],
+          },
+          {
+            label: "2",
+            stem: "Don't forget _______ your hair.",
+            target: "B",
+            choices: [
+              { key: "A", text: "comb" },
+              { key: "B", text: "to comb" },
+              { key: "C", text: "combing" },
+            ],
+          },
+          {
+            label: "3",
+            stem: "After I get up, I _______ dressed.",
+            target: "B",
+            choices: [
+              { key: "A", text: "gets" },
+              { key: "B", text: "get" },
+              { key: "C", text: "getting" },
+            ],
+          },
+          {
+            label: "4",
+            stem: "It's time _______ breakfast.",
+            target: "B",
+            choices: [
+              { key: "A", text: "have" },
+              { key: "B", text: "to have" },
+              { key: "C", text: "having" },
+            ],
+          },
+          {
+            label: "5",
+            stem: "_______ you help your mum in the morning?",
+            target: "A",
+            choices: [
+              { key: "A", text: "Do" },
+              { key: "B", text: "Does" },
+              { key: "C", text: "Are" },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "L20B2",
+        cat: "grammar",
+        title: "你的蛙蛙还记得U1/U2学了什么吗？",
+        prompt: "用 to 还是用 for？to 后接动词，for 后接名词。",
+        image: "assets/u6/l20-big2-to-for.png",
+        particlePool: ["to", "for"],
+        items: [
+          { label: "1", before: "It's time ", after: " have breakfast.", target: "to" },
+          { label: "2", before: "It's time ", after: " breakfast.", target: "for" },
+          { label: "3", before: "Time ", after: " get up.", target: "to" },
+          { label: "4", before: "Time ", after: " bed.", target: "for" },
+          { label: "5", before: "It's time ", after: " school.", target: "for" },
+          { label: "6", before: "It's time ", after: " brush my teeth.", target: "to" },
+          { label: "7", before: "It's time ", after: " go to school.", target: "to" },
+          { label: "8", before: "It's time ", after: " class.", target: "for" },
+          { label: "9", before: "It's time ", after: " home.", target: "for" },
+          { label: "10", before: "It's time ", after: " hurry up!", target: "to" },
+        ],
+      },
+      {
+        kind: "L20B3",
+        cat: "match",
+        title: "你的蛙蛙还记得U1/U2学了什么吗？",
+        prompt: "根据常识，送短语回家。",
+        image: "assets/u6/l20-big3-match.png",
+        letterPool: ["A", "B", "C", "D", "E"],
+        choiceTexts: {
+          A: "have lunch (午餐)",
+          B: "go home",
+          C: "go to bed",
+          D: "have class",
+          E: "have breakfast",
+        },
+        items: [
+          { label: "1", text: "It's half past seven. I ________.", target: "E" },
+          { label: "2", text: "It's four thirty in the afternoon. It's time to ________.", target: "B" },
+          { label: "3", text: "It's 8:30 AM. It's time to ________.", target: "D" },
+          { label: "4", text: "It's 9:00 PM. It's time to ________.", target: "C" },
+          { label: "5", text: "It's half past eleven. I ________.", target: "A" },
+        ],
+      },
+      {
+        kind: "L20B4",
+        cat: "scene",
+        title: "你的蛙蛙还记得U1/U2学了什么吗？",
+        prompt: "看图：送短语回家。",
+        image: "assets/u6/l20-big4-scene.png",
+        task1LetterPool: ["A", "B", "C", "D", "E", "F"],
+        task1ChoiceTexts: {
+          A: "Hurry up",
+          B: "get dressed",
+          C: "time to",
+          D: "half past seven",
+          E: "Don't forget",
+          F: "What time",
+        },
+        task1Items: [
+          { label: "1", before: "Dad: Sam, ", after: " get up!", target: "C" },
+          { label: "2", before: "Sam: I'm up. ", after: " is it?", target: "F" },
+          { label: "3", before: "Dad: It's ", after: ".", target: "D" },
+          { label: "4", before: "Sam: Oh, I'm late! Let me ", after: "!", target: "B" },
+          { label: "5", before: "Dad: ", after: " to have breakfast.", target: "E" },
+          { label: "6", before: "", after: "!", target: "A" },
+        ],
+        task2TfPool: ["T", "F"],
+        task2Items: [
+          { label: "7", text: "It's seven thirty now.", target: "T" },
+          { label: "8", text: "Sam is late.", target: "T" },
+          { label: "9", text: "It's time for bed.", target: "F" },
+          { label: "10", text: "They have wonton and coffee for breakfast.", target: "F" },
+        ],
+      },
+      {
+        kind: "L20B5",
+        cat: "reading",
+        title: "你的蛙蛙还记得U1/U2学了什么吗？",
+        prompt: "阅读短文，完成下列任务。",
+        image: "assets/u6/l20-big5-reading.png",
+        passage:
+          "It's seven o'clock. Time to get up. Good morning, boys and girls!\n\n" +
+          "It's twelve o'clock. Time for lunch (午餐)! Chow mein, tofu, salad, wonton, char siu... Yummy, yummy!\n\n" +
+          "It's four thirty in the afternoon. Don't forget to move your body.\n\n" +
+          "It's nine o'clock at night. It's time for bed. But I don't sleep (睡觉). Let me help you more. Good night!",
+        task1Heading: "任务一：图文匹配。",
+        task1LetterPool: ["A", "B", "C", "D"],
+        task1ChoiceTexts: {
+          A: "图 A · 夜里睡觉（月亮星星）",
+          B: "图 B · 早晨起床、阳光",
+          C: "图 C · 午餐/自选餐食物",
+          D: "图 D · 下午户外运动",
+        },
+        task1Items: [
+          { label: "1", before: "7:00 AM → ", after: "", target: "B" },
+          { label: "2", before: "12:00 → ", after: "", target: "C" },
+          { label: "3", before: "4:30 PM → ", after: "", target: "D" },
+          { label: "4", before: "9:00 PM → ", after: "", target: "A" },
+        ],
+        task2Heading: "任务二：判断对错，对的写 T，不对的写 F。",
+        task2TfPool: ["T", "F"],
+        task2Items: [
+          { label: "5", text: "It's seven o'clock. Time to get up.", target: "T" },
+          { label: "6", text: "We can have chow mein, tofu and wonton for breakfast.", target: "F" },
+          { label: "7", text: "It's half past four. Time to do exercise.", target: "T" },
+          { label: "8", text: "It's nine o'clock. The satellite goes to bed.", target: "F" },
+        ],
+      },
+    ];
+  }
+
   function buildLevels() {
     const levels = [];
     const joinWord = WORDS.find((w) => w.en === "join");
@@ -1964,6 +2328,10 @@
       let steps;
       if (lv === 7 || lv === 8) {
         steps = buildReviewLevelSteps(lv, w1, w2);
+      } else if (lv === 20) {
+        steps = buildLevel20Steps();
+      } else if (lv === 19) {
+        steps = buildLevel19Steps();
       } else if (lv === 18) {
         steps = buildLevel18Steps();
       } else if (lv === 17) {
@@ -2192,6 +2560,9 @@
   let lastRenderedLevel = null;
   let levelStartCelebrationShown = null;
   let teacherAccessUnlocked = false;
+  /** 同一关同一环节内连续选错次数（用于第 5 次后显示「跳过」） */
+  let answerWrongStreakKey = "";
+  let answerWrongStreakCount = 0;
   let teacherTapCount = 0;
   let teacherTapTimer = null;
   let teacherAccountsCache = [];
@@ -2320,6 +2691,14 @@
 
   function isGameCreatorUser(name) {
     return GAME_CREATOR_USERNAMES.has(String(normalizeUserName(name) || "").trim().toLowerCase());
+  }
+
+  function isLoggedInPlayer() {
+    return !!normalizeUserName(playerName);
+  }
+
+  function currentAnswerStreakKey() {
+    return String(state.currentLevel) + ":" + String(state.currentStepIndex);
   }
 
   function isTeacherFullUnlockUser(name) {
@@ -2852,6 +3231,26 @@
     }
   }
 
+  function showSkipOfferBar() {
+    const old = document.getElementById("frog-skip-after-wrong");
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    const wrap = el("div", "skip-after-wrong");
+    wrap.id = "frog-skip-after-wrong";
+    wrap.appendChild(
+      el("div", "prompt prompt--sub", "已连续选错 5 次，下方为参考答案。可点「跳过」直接进入下一题（本环节不额外加星）。")
+    );
+    const btn = el("button", "btn-primary", "跳过");
+    btn.type = "button";
+    btn.addEventListener("click", () => {
+      const bar = document.getElementById("frog-skip-after-wrong");
+      if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+      answerWrongStreakCount = 0;
+      goNextStep(true, { skipNoStar: true });
+    });
+    wrap.appendChild(btn);
+    root.appendChild(wrap);
+  }
+
   const stepStatus = {
     hadWrong: false,
     isCorrect: false,
@@ -2870,8 +3269,37 @@
       if (this.graded) return;
       this.hadWrong = true;
       showRetryEncouragement();
+      answerWrongStreakCount += 1;
+      if (answerWrongStreakCount >= 5) {
+        answerWrongStreakCount = 0;
+        if (autoRetryTimer) {
+          clearTimeout(autoRetryTimer);
+          autoRetryTimer = null;
+        }
+        if (typeof this.revealFn === "function") this.revealFn();
+        this.graded = true;
+        showSkipOfferBar();
+        syncActionBar();
+        return;
+      }
       syncActionBar();
       if (autoRetryTimer) return;
+      const st0 = currentStep();
+      if (
+        st0 &&
+        (st0.kind === "L19B1" ||
+          st0.kind === "L19B2" ||
+          st0.kind === "L19B3" ||
+          st0.kind === "L19B4" ||
+          st0.kind === "L19B5" ||
+          st0.kind === "L19B6" ||
+          st0.kind === "L20B1" ||
+          st0.kind === "L20B2" ||
+          st0.kind === "L20B3" ||
+          st0.kind === "L20B4" ||
+          st0.kind === "L20B5")
+      )
+        return;
       autoRetryTimer = setTimeout(() => {
         autoRetryTimer = null;
         renderCurrentStep();
@@ -2879,6 +3307,7 @@
     },
     markCorrect() {
       if (this.isCorrect) return;
+      answerWrongStreakCount = 0;
       this.isCorrect = true;
       const step = currentStep();
       if (state.currentLevel === 15 && step && step.kind === "CLZ") {
@@ -2936,6 +3365,20 @@
     if (!step) return "";
     if (step.kind && step.kind.indexOf("L17") === 0) return "";
     if (step.kind === "L18F" || step.kind === "L18IMG" || step.kind === "L18C") return "";
+    if (
+      step.kind === "L19B1" ||
+      step.kind === "L19B2" ||
+      step.kind === "L19B3" ||
+      step.kind === "L19B4" ||
+      step.kind === "L19B5" ||
+      step.kind === "L19B6" ||
+      step.kind === "L20B1" ||
+      step.kind === "L20B2" ||
+      step.kind === "L20B3" ||
+      step.kind === "L20B4" ||
+      step.kind === "L20B5"
+    )
+      return "";
     if (state.currentLevel === 18 && step.kind === "W3") return "";
     if (step.kind === "CLZ") return "";
     if (state.currentLevel === 14 && step.passage) return "";
@@ -2996,6 +3439,8 @@
       frogActor.classList.toggle("frog-actor--level16", state.currentLevel === 16);
       frogActor.classList.toggle("frog-actor--level17", state.currentLevel === 17);
       frogActor.classList.toggle("frog-actor--level18", state.currentLevel === 18);
+      frogActor.classList.toggle("frog-actor--level19", state.currentLevel === 19);
+      frogActor.classList.toggle("frog-actor--level20", state.currentLevel === 20);
     }
     if (frogNameTag) frogNameTag.textContent = playerName || "小青蛙";
     upsertCurrentPlayerScore();
@@ -3082,6 +3527,12 @@
     const duration = Math.max(700, Number(opts.duration) || 1700);
     const milestone = !!opts.milestone;
     const extraClass = typeof opts.extraClass === "string" && opts.extraClass.trim() ? opts.extraClass.trim() : "";
+    const fireworksEl = levelCelebration.querySelector(".level-celebration__fireworks");
+    let prevFireworksHtml = null;
+    if (fireworksEl && "fireworksHtml" in opts) {
+      prevFireworksHtml = fireworksEl.innerHTML;
+      fireworksEl.innerHTML = String(opts.fireworksHtml);
+    }
     levelCelebration.classList.toggle("level-celebration--milestone", milestone);
     if (extraClass) levelCelebration.classList.add(extraClass);
     levelCelebration.classList.remove("level-celebration--hidden");
@@ -3090,11 +3541,24 @@
       levelCelebration.classList.add("level-celebration--hidden");
       levelCelebration.classList.remove("level-celebration--milestone");
       if (extraClass) levelCelebration.classList.remove(extraClass);
+      if (fireworksEl && prevFireworksHtml != null) fireworksEl.innerHTML = prevFireworksHtml;
     }, duration);
   }
 
   function showLevelCelebration(nextLevel, done) {
-    showCelebrationOverlay(done ? "🏆 U5 记短语·全部通关！" : "🎉 恭喜进入第 " + nextLevel + " 关", { duration: 1700 });
+    if (done) {
+      showCelebrationOverlay("🏆 恭喜全部通关！", { duration: 1900, milestone: true });
+      return;
+    }
+    if (nextLevel >= 19) {
+      showCelebrationOverlay("🎆 恭喜蛙蛙闯进第 " + nextLevel + " 关！", {
+        duration: 2000,
+        milestone: true,
+        extraClass: "level-celebration--level19-20",
+      });
+      return;
+    }
+    showCelebrationOverlay("🎉 恭喜进入第 " + nextLevel + " 关", { duration: 1700 });
   }
 
   function maybeShowLevelStartCelebration() {
@@ -3116,6 +3580,15 @@
         duration: 2400,
         milestone: true,
         extraClass: "level-celebration--level18-start",
+      });
+      return;
+    }
+    if (state.currentLevel >= 19) {
+      levelStartCelebrationShown = state.currentLevel;
+      showCelebrationOverlay("🎆 恭喜蛙蛙闯进第 " + state.currentLevel + " 关！", {
+        duration: 2400,
+        milestone: true,
+        extraClass: "level-celebration--level19-20",
       });
       return;
     }
@@ -3253,19 +3726,19 @@
     const total = lv ? lv.steps.length : 0;
     const t = Math.max(0, total);
     const nodes = ["学校", "课室", "操场", "体育馆", "艺术馆", "终点"];
-    const creator = isGameCreatorUser(playerName);
+    const storyMapClickable = isGameCreatorUser(playerName) || isLoggedInPlayer();
     const stepStarts0 = t ? getStoryMapStepStarts0(t) : [0, 0, 0, 0, 0, 0];
     const activeN = t ? currentStoryMapNode6(state.currentStepIndex, t) : 0;
     const wrap = el("div", "story-map", "");
-    if (creator) wrap.classList.add("story-map--creator");
+    if (storyMapClickable) wrap.classList.add("story-map--creator");
     nodes.forEach((name, idx) => {
-      const n = creator
+      const n = storyMapClickable
         ? el("button", "story-map__node story-map__node--clickable", name)
         : el("div", "story-map__node", name);
-      if (creator) n.type = "button";
-      if (idx <= activeN) n.classList.add("story-map__node--on");
+      if (storyMapClickable) n.type = "button";
+      if (storyMapClickable || idx <= activeN) n.classList.add("story-map__node--on");
       if (idx === activeN) n.classList.add("story-map__node--current");
-      if (creator) {
+      if (storyMapClickable) {
         n.setAttribute("aria-label", name + "，跳转到本关第 " + (stepStarts0[idx] + 1) + " 环节");
         n.addEventListener("click", () => {
           const to = stepStarts0[idx];
@@ -3450,6 +3923,838 @@
       .trim()
       .toLowerCase()
       .replace(/[’`]/g, "'");
+  }
+
+  function normalizeL19Phrase(s) {
+    return String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\.+$/g, "");
+  }
+
+  function phraseMatchesL19(picked, target) {
+    return normalizeL19Phrase(picked) === normalizeL19Phrase(target);
+  }
+
+  function renderL19B1(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const img = document.createElement("img");
+    img.className = "l19-worksheet-img";
+    img.src = step.image || "";
+    img.alt = "练习题 · 短语配图";
+    img.loading = "lazy";
+    root.appendChild(img);
+
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const pool = (step.phrasePool || []).slice();
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line");
+      line.appendChild(document.createTextNode(it.label + ". " + it.before));
+      const chip = el("span", "l19-sentence-chip", "______");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(it.after));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid");
+      shuffle(pool).forEach((ph) => {
+        const b = el("button", "choice-btn choice-btn--phrase", ph);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (phraseMatchesL19(ph, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            chip.textContent = ph;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(it.target);
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => it.label + ". " + it.target);
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function letterMatchesL19(picked, target) {
+    return String(picked || "")
+      .trim()
+      .toUpperCase() === String(target || "").trim().toUpperCase();
+  }
+
+  function renderL19B2(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const img = document.createElement("img");
+    img.className = "l19-worksheet-img";
+    img.src = step.image || "";
+    img.alt = "练习题 · 图文匹配";
+    img.loading = "lazy";
+    root.appendChild(img);
+
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const pool = (step.letterPool || ["A", "B", "C", "D", "E"]).slice();
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match");
+      line.appendChild(document.createTextNode("( "));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "?");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(" ) " + it.label + ". " + it.text));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-letter-grid");
+      shuffle(pool).forEach((letter) => {
+        const b = el("button", "choice-btn choice-btn--letter", letter);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (letterMatchesL19(letter, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            chip.textContent = letter;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(it.text);
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => it.label + ". → 图 " + it.target);
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function tfMatchesL19(picked, target) {
+    return String(picked || "")
+      .trim()
+      .toUpperCase() === String(target || "").trim().toUpperCase();
+  }
+
+  function renderL19B3(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const img = document.createElement("img");
+    img.className = "l19-worksheet-img";
+    img.src = step.image || "";
+    img.alt = "练习题 · 图文判断 T / F";
+    img.loading = "lazy";
+    root.appendChild(img);
+
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const pool = (step.tfPool || ["T", "F"]).slice();
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match l19-sentence-line--tf");
+      line.appendChild(document.createTextNode("( "));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "?");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(" ) " + it.label + ". " + it.text));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-tf-grid");
+      shuffle(pool).forEach((tf) => {
+        const b = el("button", "choice-btn choice-btn--letter choice-btn--tf", tf);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (tfMatchesL19(tf, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            chip.textContent = tf;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(l19L20TfSpeakWord(tf));
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => it.label + ". " + it.target);
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function renderL19B6(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const pass = el("div", "l19-reading-passage dialogue-box dialogue-box--yellow");
+    pass.textContent = step.passage || "";
+    root.appendChild(pass);
+
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const pool = (step.tfPool || ["T", "F"]).slice();
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match l19-sentence-line--tf");
+      line.appendChild(document.createTextNode("( "));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "?");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(" ) " + it.label + ". " + it.text));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-tf-grid");
+      shuffle(pool).forEach((tf) => {
+        const b = el("button", "choice-btn choice-btn--letter choice-btn--tf", tf);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (tfMatchesL19(tf, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            chip.textContent = tf;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(l19L20TfSpeakWord(tf));
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => it.label + ". " + it.target);
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function renderL20B1(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row l19-mcq-block");
+      row.appendChild(el("div", "l19-mcq-label", it.label + ". " + (it.stem || "")));
+
+      const grid = el("div", "choice-grid l19-mcq-grid");
+      const choices = (it.choices || []).slice();
+      shuffle(choices).forEach((ch) => {
+        const btnLabel = ch.key + ". " + ch.text;
+        const b = el("button", "choice-btn choice-btn--phrase l19-mcq-choice", btnLabel);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (letterMatchesL19(ch.key, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            playL19L20SubAnswerEnglish(ch.text);
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => {
+        const hit = (it.choices || []).find((c) => letterMatchesL19(c.key, it.target));
+        return it.label + ". " + it.target + (hit ? " — " + hit.text : "");
+      });
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function renderL20B3(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const img = document.createElement("img");
+    img.className = "l19-worksheet-img";
+    img.src = step.image || "";
+    img.alt = "练习题 · 短语与时间匹配";
+    img.loading = "lazy";
+    root.appendChild(img);
+
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const pool = (step.letterPool || ["A", "B", "C", "D", "E"]).slice();
+    const choiceTexts = step.choiceTexts || {};
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match");
+      line.appendChild(document.createTextNode("( "));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "?");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(" ) " + it.label + ". " + it.text));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-letter-grid");
+      shuffle(pool).forEach((letter) => {
+        const hint = choiceTexts[letter];
+        const btnLabel = hint ? letter + ". " + hint : letter;
+        const b = el("button", "choice-btn choice-btn--phrase l19-gap-choice", btnLabel);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (letterMatchesL19(letter, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            chip.textContent = letter;
+            chip.classList.add("l19-sentence-chip--filled");
+            {
+              const hint = choiceTexts[letter];
+              playL19L20SubAnswerEnglish(stripParenHintsForEnglishAudio(hint || "") || letter);
+            }
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => {
+        const t = String(it.target || "").trim().toUpperCase();
+        const txt = choiceTexts[t] || "";
+        return it.label + ". " + t + (txt ? " — " + txt : "");
+      });
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function renderL20B4(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const img = document.createElement("img");
+    img.className = "l19-worksheet-img";
+    img.src = step.image || "";
+    img.alt = "练习题 · Sam 与爸爸";
+    img.loading = "lazy";
+    root.appendChild(img);
+
+    const answerKey = createAnswerKey();
+    const t1 = step.task1Items || [];
+    const pool1 = (step.task1LetterPool || ["A", "B", "C", "D", "E", "F"]).slice();
+    const c1 = step.task1ChoiceTexts || {};
+    const done1 = t1.map(() => false);
+
+    const t2 = step.task2Items || [];
+    const pool2 = (step.task2TfPool || ["T", "F"]).slice();
+    const done2 = t2.map(() => false);
+
+    function checkAllDone() {
+      if (done1.every(Boolean) && done2.every(Boolean)) stepStatus.markCorrect();
+    }
+
+    root.appendChild(el("div", "l20-task-heading", "任务一"));
+
+    t1.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match");
+      line.appendChild(document.createTextNode(it.label + ". " + it.before));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "____");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(it.after));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-letter-grid l20-letter-grid--6");
+      shuffle(pool1).forEach((letter) => {
+        const hint = c1[letter];
+        const btnLabel = hint ? letter + ". " + hint : letter;
+        const b = el("button", "choice-btn choice-btn--phrase l19-gap-choice", btnLabel);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || done1[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (letterMatchesL19(letter, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            done1[rowIdx] = true;
+            chip.textContent = letter;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(c1[letter] || "");
+            checkAllDone();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    root.appendChild(el("div", "l20-task-heading", "任务二"));
+
+    t2.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match l19-sentence-line--tf");
+      line.appendChild(document.createTextNode("( "));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "?");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(" ) " + it.label + ". " + it.text));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-tf-grid");
+      shuffle(pool2).forEach((tf) => {
+        const b = el("button", "choice-btn choice-btn--letter choice-btn--tf", tf);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || done2[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (tfMatchesL19(tf, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            done2[rowIdx] = true;
+            chip.textContent = tf;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(l19L20TfSpeakWord(tf));
+            checkAllDone();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines1 = t1.map((it) => {
+        const u = String(it.target || "").trim().toUpperCase();
+        const txt = c1[u] || "";
+        return "任务一 · " + it.label + ". " + u + (txt ? " — " + txt : "");
+      });
+      const lines2 = t2.map((it) => "任务二 · " + it.label + ". " + it.target);
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines1.concat(lines2).join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function renderL20B5(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const img = document.createElement("img");
+    img.className = "l19-worksheet-img";
+    img.src = step.image || "";
+    img.alt = "练习题 · 卫星小能手阅读";
+    img.loading = "lazy";
+    root.appendChild(img);
+
+    if (step.passage) {
+      const pass = el("div", "l19-reading-passage dialogue-box dialogue-box--yellow");
+      pass.textContent = step.passage;
+      root.appendChild(pass);
+    }
+
+    const answerKey = createAnswerKey();
+    const t1 = step.task1Items || [];
+    const pool1 = (step.task1LetterPool || ["A", "B", "C", "D"]).slice();
+    const c1 = step.task1ChoiceTexts || {};
+    const done1 = t1.map(() => false);
+
+    const t2 = step.task2Items || [];
+    const pool2 = (step.task2TfPool || ["T", "F"]).slice();
+    const done2 = t2.map(() => false);
+
+    function checkAllDone() {
+      if (done1.every(Boolean) && done2.every(Boolean)) stepStatus.markCorrect();
+    }
+
+    root.appendChild(el("div", "l20-task-heading", step.task1Heading || "任务一"));
+
+    t1.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match");
+      line.appendChild(document.createTextNode(it.label + ". " + it.before));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "____");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(it.after));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-letter-grid");
+      shuffle(pool1).forEach((letter) => {
+        const hint = c1[letter];
+        const btnLabel = hint ? letter + ". " + hint : letter;
+        const b = el("button", "choice-btn choice-btn--phrase l19-gap-choice", btnLabel);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || done1[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (letterMatchesL19(letter, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            done1[rowIdx] = true;
+            chip.textContent = letter;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish("Option " + String(letter || "").trim().toUpperCase());
+            checkAllDone();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    root.appendChild(el("div", "l20-task-heading", step.task2Heading || "任务二"));
+
+    t2.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match l19-sentence-line--tf");
+      line.appendChild(document.createTextNode("( "));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "?");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(" ) " + it.label + ". " + it.text));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-tf-grid");
+      shuffle(pool2).forEach((tf) => {
+        const b = el("button", "choice-btn choice-btn--letter choice-btn--tf", tf);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || done2[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (tfMatchesL19(tf, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            done2[rowIdx] = true;
+            chip.textContent = tf;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(l19L20TfSpeakWord(tf));
+            checkAllDone();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines1 = t1.map((it) => {
+        const u = String(it.target || "").trim().toUpperCase();
+        const txt = c1[u] || "";
+        return "任务一 · " + it.label + ". " + u + (txt ? " — " + txt : "");
+      });
+      const lines2 = t2.map((it) => "任务二 · " + it.label + ". " + it.target);
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines1.concat(lines2).join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function particleToForMatches(picked, target) {
+    return String(picked || "")
+      .trim()
+      .toLowerCase() === String(target || "").trim().toLowerCase();
+  }
+
+  function renderL20B2(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const img = document.createElement("img");
+    img.className = "l19-worksheet-img";
+    img.src = step.image || "";
+    img.alt = "练习题 · to / for";
+    img.loading = "lazy";
+    root.appendChild(img);
+
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const pool = (step.particlePool || ["to", "for"]).slice();
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row");
+      const line = el("div", "l19-sentence-line l19-sentence-line--match");
+      line.appendChild(document.createTextNode(it.label + ". " + it.before));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--particle", "____");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(it.after));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l20-particle-grid");
+      shuffle(pool).forEach((p) => {
+        const b = el("button", "choice-btn choice-btn--letter l20-particle-btn", p);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (particleToForMatches(p, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            chip.textContent = p;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(p);
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => it.label + ". " + it.target);
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function renderL19B4(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+    const img = document.createElement("img");
+    img.className = "l19-worksheet-img";
+    img.src = step.image || "";
+    img.alt = "练习题 · 图文匹配 A/B/C";
+    img.loading = "lazy";
+    root.appendChild(img);
+
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      const row = el("div", "l19-sentence-row l19-mcq-block");
+      row.appendChild(el("div", "l19-mcq-label", "第 " + it.label + " 题"));
+
+      const grid = el("div", "choice-grid l19-mcq-grid");
+      const choices = (it.choices || []).slice();
+      shuffle(choices).forEach((ch) => {
+        const btnLabel = ch.key + ". " + ch.text;
+        const b = el("button", "choice-btn choice-btn--phrase l19-mcq-choice", btnLabel);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (letterMatchesL19(ch.key, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            playL19L20SubAnswerEnglish(ch.text);
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      root.appendChild(row);
+    });
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => {
+        const hit = (it.choices || []).find((c) => letterMatchesL19(c.key, it.target));
+        return it.label + ". " + it.target + (hit ? " — " + hit.text : "");
+      });
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
+  }
+
+  function renderL19B5(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "l19-subtitle prompt prompt--sub", step.prompt || ""));
+
+    const box = el("div", "l19-dialogue-box dialogue-box dialogue-box--yellow");
+    if (step.intro) {
+      box.appendChild(el("div", "l19-dialogue-line l19-dialogue-line--intro", step.intro));
+    }
+
+    const answerKey = createAnswerKey();
+    const items = step.items || [];
+    const pool = (step.letterPool || ["A", "B", "C", "D", "E"]).slice();
+    const choiceTexts = step.choiceTexts || {};
+    const rowDone = items.map(() => false);
+
+    items.forEach((it, rowIdx) => {
+      if (it.prevLine) {
+        box.appendChild(el("div", "l19-dialogue-line l19-dialogue-line--prev", it.prevLine));
+      }
+      const row = el("div", "l19-sentence-row l19-dialogue-gap-row");
+      const line = el("div", "l19-sentence-line l19-dialogue-line");
+      line.appendChild(document.createTextNode(it.label + ". " + it.speaker + ": " + it.before + "( "));
+      const chip = el("span", "l19-sentence-chip l19-sentence-chip--letter", "?");
+      line.appendChild(chip);
+      line.appendChild(document.createTextNode(" )" + it.after));
+      row.appendChild(line);
+
+      const grid = el("div", "choice-grid l19-row-grid l19-letter-grid");
+      shuffle(pool).forEach((letter) => {
+        const hint = choiceTexts[letter];
+        const btnLabel = hint ? letter + ". " + hint : letter;
+        const b = el("button", "choice-btn choice-btn--phrase l19-gap-choice", btnLabel);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (stepStatus.graded || stepStatus.isCorrect || rowDone[rowIdx]) return;
+          grid.querySelectorAll("button").forEach((x) => x.classList.remove("choice-btn--wrong", "choice-btn--correct"));
+          if (letterMatchesL19(letter, it.target)) {
+            b.classList.add("choice-btn--correct");
+            grid.querySelectorAll("button").forEach((btn) => {
+              btn.disabled = true;
+            });
+            rowDone[rowIdx] = true;
+            chip.textContent = letter;
+            chip.classList.add("l19-sentence-chip--filled");
+            playL19L20SubAnswerEnglish(choiceTexts[letter] || "");
+            if (rowDone.every(Boolean)) stepStatus.markCorrect();
+            updateHud();
+          } else {
+            b.classList.add("choice-btn--wrong");
+            stepStatus.markWrong();
+            updateHud();
+          }
+        });
+        grid.appendChild(b);
+      });
+      row.appendChild(grid);
+      box.appendChild(row);
+    });
+
+    if (step.footer) {
+      box.appendChild(el("div", "l19-dialogue-line l19-dialogue-line--footer", step.footer));
+    }
+    root.appendChild(box);
+
+    stepStatus.setReveal(() => {
+      const lines = items.map((it) => {
+        const t = String(it.target || "").toUpperCase();
+        const txt = choiceTexts[t] || choiceTexts[it.target] || "";
+        return it.label + ". " + t + (txt ? " — " + txt : "");
+      });
+      revealKey(answerKey, "<strong>参考答案：</strong><br/>" + lines.join("<br/>"));
+    });
+    root.appendChild(answerKey);
   }
 
   function renderL18Img(step) {
@@ -4850,6 +6155,8 @@
     video.controls = false;
     video.preload = "metadata";
     video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
     const rawVideoSrc = String(step.video || "");
     video.src = rawVideoSrc
       ? rawVideoSrc + (rawVideoSrc.includes("?") ? "&" : "?") + "v=" + Date.now()
@@ -5046,6 +6353,11 @@
   }
 
   function renderStep(step) {
+    const sk = currentAnswerStreakKey();
+    if (sk !== answerWrongStreakKey) {
+      answerWrongStreakKey = sk;
+      answerWrongStreakCount = 0;
+    }
     stepStatus.reset();
     renderByKind[step.kind](step);
     syncActionBar();
@@ -5095,6 +6407,17 @@
     L18IMG: renderL18Img,
     L18C: renderL18C,
     L18F: renderL18F,
+    L19B1: renderL19B1,
+    L19B2: renderL19B2,
+    L19B3: renderL19B3,
+    L19B4: renderL19B4,
+    L19B5: renderL19B5,
+    L19B6: renderL19B6,
+    L20B1: renderL20B1,
+    L20B2: renderL20B2,
+    L20B3: renderL20B3,
+    L20B4: renderL20B4,
+    L20B5: renderL20B5,
   };
 
   function renderCurrentStep() {
@@ -5125,7 +6448,9 @@
     maybePlayLevel18OrangeIntro();
   }
 
-  function goNextStep(force) {
+  function goNextStep(force, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const skipNoStar = !!opts.skipNoStar;
     if (!force && btnContinue.disabled) return;
     if (currentStepResult === "level" || currentStepResult === "done") return;
     if (autoAdvanceTimer) {
@@ -5134,7 +6459,7 @@
       autoAdvancing = false;
     }
     const step = currentStep();
-    if (canEarnStarsThisLevelStep()) {
+    if (!skipNoStar && canEarnStarsThisLevelStep()) {
       state.stars += 1;
     }
     const total = currentLevelObj().steps.length;
@@ -5156,7 +6481,7 @@
       showLevelCelebration(state.currentLevel, done);
       if (done) {
         clearRoot();
-        root.appendChild(el("div", "prompt", "🏆 U5 记短语·全部通关！"));
+        root.appendChild(el("div", "prompt", "🏆 恭喜全部通关！"));
         currentStepResult = "done";
         syncActionBar();
         updateHud();
