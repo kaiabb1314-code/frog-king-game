@@ -18,7 +18,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
-  const MAX_LEVEL = 20;
+  const MAX_LEVEL = 25;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -45,6 +45,35 @@
     { en: "eat", zh: "吃", emoji: "🍽️", sentenceEn: "Do you want to eat?", sentenceZh: "你想吃东西吗？" },
     { en: "together", zh: "一起", emoji: "👫", sentenceEn: "We can eat together.", sentenceZh: "我们可以一起吃。" },
   ];
+
+  const U6_WORD_LEVELS = [
+    [
+      { en: "run", zh: "跑", emoji: "🏃", sentenceEn: "Don't run in the classroom.", sentenceZh: "不要在教室里跑。" },
+      { en: "best", zh: "最好", emoji: "🥇", sentenceEn: "Do your best.", sentenceZh: "尽你所能。" },
+      { en: "rule", zh: "规则", emoji: "📋", sentenceEn: "This is a classroom rule.", sentenceZh: "这是一条课堂规则。" },
+    ],
+    [
+      { en: "turn", zh: "依次轮到", emoji: "🔁", sentenceEn: "It is your turn.", sentenceZh: "轮到你了。" },
+      { en: "speak", zh: "说话", emoji: "🎤", sentenceEn: "Please speak nicely.", sentenceZh: "请友善地说话。" },
+      { en: "give", zh: "给", emoji: "🤲", sentenceEn: "Give a helping hand.", sentenceZh: "伸出援手。" },
+    ],
+    [
+      { en: "away", zh: "离开", emoji: "📦", sentenceEn: "Put away your things.", sentenceZh: "把你的东西收好。" },
+      { en: "must", zh: "必须", emoji: "✅", sentenceEn: "You must listen carefully.", sentenceZh: "你必须仔细听。" },
+      { en: "need", zh: "需要", emoji: "💧", sentenceEn: "I need water.", sentenceZh: "我需要水。" },
+    ],
+    [
+      { en: "top", zh: "最高", emoji: "⛰️", sentenceEn: "Reach the top.", sentenceZh: "到达最高处。" },
+      { en: "talk", zh: "说话", emoji: "💬", sentenceEn: "Don't talk in class.", sentenceZh: "不要在课堂上说话。" },
+      { en: "exercise", zh: "练习", emoji: "🏋️", sentenceEn: "Exercise is good for you.", sentenceZh: "练习对你有好处。" },
+    ],
+    [
+      { en: "clean", zh: "干净的 / 打扫", emoji: "🧹", sentenceEn: "Clean the classroom.", sentenceZh: "打扫教室。" },
+      { en: "arrive", zh: "到达", emoji: "🛬", sentenceEn: "Please arrive on time.", sentenceZh: "请准时到达。" },
+    ],
+  ];
+
+  const U6_WORDS = U6_WORD_LEVELS.reduce((all, group) => all.concat(group), []);
 
   const ABC = "abcdefghijklmnopqrstuvwxyz".split("");
   const PRAISE_LINES = ["真棒！", "太厉害啦！", "学术蛙进化中！", "继续保持！", "答得漂亮！"];
@@ -567,8 +596,10 @@
       lastAutoAudioAt = now;
       return true;
     }
-    // 禁用 TTS 回退，确保只有人声
-    return false;
+    speakFallback(raw);
+    lastAutoAudioText = raw;
+    lastAutoAudioAt = now;
+    return true;
   }
 
   async function warmAndPreloadEnglishText(text) {
@@ -605,7 +636,7 @@
 
   async function preloadHumanAudio() {
     const texts = new Set();
-    WORDS.forEach((w) => {
+    WORDS.concat(U6_WORDS).forEach((w) => {
       texts.add(w.en);
       texts.add(w.sentenceEn);
     });
@@ -659,6 +690,10 @@
     return shuffle(WORDS.map((w) => w.en).filter((w) => w !== target)).slice(0, n);
   }
 
+  function wrongWordsFromPool(target, n, pool) {
+    return shuffle(pool.map((w) => w.en).filter((w) => w !== target)).slice(0, n);
+  }
+
   function buildMissingLetterTasks(word) {
     const letters = word.en.toLowerCase().split("");
     const base = letters.map((ch, i) => {
@@ -676,14 +711,15 @@
     return base.concat(bonus);
   }
 
-  function buildWordBlock(word, groupName) {
+  function buildWordBlock(word, groupName, wordPool) {
+    const pool = wordPool || WORDS;
     const sentenceTokens = tokenizeSentence(word.sentenceEn);
     const pattern = new RegExp("\\b" + escapeRegExp(word.en) + "\\b", "i");
     const sentenceBlank = word.sentenceEn.replace(pattern, "______");
-    const sentenceWordOptions = shuffle([word.en, ...wrongWords(word.en, 3)]);
+    const sentenceWordOptions = shuffle([word.en, ...wrongWordsFromPool(word.en, 3, pool)]);
     return [
-      { kind: "W1", cat: "word", title: groupName + " · 听音识图", word, emojis: shuffle([word.emoji, ...shuffle(WORDS.map((w) => w.emoji).filter((e) => e !== word.emoji)).slice(0, 3)]) },
-      { kind: "W2", cat: "word", title: groupName + " · 中译英", word, options: shuffle([word.en, ...wrongWords(word.en, 3)]) },
+      { kind: "W1", cat: "word", title: groupName + " · 听音识图", word, emojis: shuffle([word.emoji, ...shuffle(pool.map((w) => w.emoji).filter((e) => e !== word.emoji)).slice(0, 3)]) },
+      { kind: "W2", cat: "word", title: groupName + " · 中译英", word, options: shuffle([word.en, ...wrongWordsFromPool(word.en, 3, pool)]) },
       { kind: "P1", cat: "speaking", title: groupName + " · 口语跟读（单词）", target: word.en, hintZh: "请跟读这个新单词", word },
       { kind: "W3", cat: "word", title: groupName + " · 填漏字母", word, tasks: buildMissingLetterTasks(word) },
       { kind: "S1", cat: "sentence", title: groupName + " · 拖拽填空", word, sentenceBlank, sentenceZh: word.sentenceZh, options: sentenceWordOptions },
@@ -700,6 +736,14 @@
       { kind: "M1", cat: "word", title: "默写挑战 · 新词1", word: wordA },
       { kind: "M2", cat: "word", title: "默写挑战 · 新词2", word: wordB },
     ];
+  }
+
+  function buildU6WordLevelSteps(level) {
+    const words = U6_WORD_LEVELS[level - 21] || [];
+    const groupNames = ["第一组", "第二组", "第三组"];
+    return words.reduce((steps, word, idx) => {
+      return steps.concat(buildWordBlock(word, groupNames[idx] || "第" + (idx + 1) + "组", U6_WORDS));
+    }, []);
   }
 
   const REVIEW_BANK = [
@@ -2326,7 +2370,9 @@
     for (let lv = 1; lv <= MAX_LEVEL; lv++) {
       const [w1, w2] = getWordPair(lv);
       let steps;
-      if (lv === 7 || lv === 8) {
+      if (lv >= 21 && lv <= 25) {
+        steps = buildU6WordLevelSteps(lv);
+      } else if (lv === 7 || lv === 8) {
         steps = buildReviewLevelSteps(lv, w1, w2);
       } else if (lv === 20) {
         steps = buildLevel20Steps();
@@ -2568,7 +2614,15 @@
   let teacherAccountsCache = [];
   const TEACHER_ENTRY_CODE = "frog2026";
   const OUTFITS = ["🎀", "🕶️", "🎓", "🧣", "🧢", "🥽", "🎧", "💚", "🌟", "🪄"];
+  const LEVEL_OUTFIT_BY_ID = {
+    21: { head: "🥕", left: "🥕", right: "🥕" },
+    22: { head: "🥦", left: "🥦", right: "🥦" },
+    23: { head: "🌽", left: "🌽", right: "🌽" },
+    24: { head: "🍅", left: "🍅", right: "🍅" },
+    25: { head: "🥬", left: "🥬", right: "🥬" },
+  };
   const OUTFIT_CLASS_BY_ICON = {
+    vegetable: "frog-outfit--vegetable",
     "🎀": "frog-outfit--bow",
     "🕶️": "frog-outfit--sunglasses",
     "🎓": "frog-outfit--cap",
@@ -2580,6 +2634,34 @@
     "🌟": "frog-outfit--star",
     "🪄": "frog-outfit--wand",
   };
+
+  function getOutfitForLevel(level) {
+    if (LEVEL_OUTFIT_BY_ID[level]) return LEVEL_OUTFIT_BY_ID[level];
+    const outfitCount = Math.max(0, level - 1);
+    const outfit = outfitCount > 0 ? OUTFITS[(outfitCount - 1) % OUTFITS.length] : "";
+    return level >= 15 ? "" : outfit;
+  }
+
+  function renderFrogOutfit(outfit) {
+    if (!frogOutfit) return;
+    frogOutfit.textContent = "";
+    if (outfit && typeof outfit === "object") {
+      [
+        ["head", outfit.head],
+        ["hand-l", outfit.left],
+        ["hand-r", outfit.right],
+      ].forEach(([pos, icon]) => {
+        if (!icon) return;
+        const item = el("span", "frog-veggie frog-veggie--" + pos, icon);
+        item.setAttribute("aria-hidden", "true");
+        frogOutfit.appendChild(item);
+      });
+      applyOutfitPlacement("vegetable");
+      return;
+    }
+    frogOutfit.textContent = outfit || "";
+    applyOutfitPlacement(outfit);
+  }
   const ZH_BY_EN = {
     "Do you want to join us?": "你想加入我们吗？",
     "Do you want to try?": "你想试试吗？",
@@ -3429,11 +3511,8 @@
     stepLabel.textContent = "环节 " + (idx + 1) + " / " + total + " · 第 " + state.currentLevel + " 关";
     starCountEl.textContent = String(state.stars);
     crownCountEl.textContent = String(state.crowns);
-    const outfitCount = Math.max(0, state.currentLevel - 1);
-    let outfit = outfitCount > 0 ? OUTFITS[(outfitCount - 1) % OUTFITS.length] : "";
-    if (state.currentLevel >= 15) outfit = "";
-    frogOutfit.textContent = outfit;
-    applyOutfitPlacement(outfit);
+    const outfit = getOutfitForLevel(state.currentLevel);
+    renderFrogOutfit(outfit);
     updateFrogBodyGrowth(state.currentLevel);
     if (frogActor) {
       frogActor.classList.toggle("frog-actor--level16", state.currentLevel === 16);
@@ -6154,6 +6233,8 @@
     video.className = "video-quiz-player";
     video.controls = false;
     video.preload = "metadata";
+    video.muted = false;
+    video.volume = 1;
     video.playsInline = true;
     video.setAttribute("playsinline", "");
     video.setAttribute("webkit-playsinline", "");
