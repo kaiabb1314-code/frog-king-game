@@ -18,7 +18,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
-  const MAX_LEVEL = 25;
+  const MAX_LEVEL = 30;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -74,6 +74,66 @@
   ];
 
   const U6_WORDS = U6_WORD_LEVELS.reduce((all, group) => all.concat(group), []);
+
+  const U7_WORD_LEVELS = [
+    [
+      { en: "stand", zh: "站立", emoji: "🧍", sentenceEn: "Please stand in line.", sentenceZh: "请站好队。" },
+      { en: "line", zh: "队伍；行列", emoji: "➖", sentenceEn: "Stand in line, please.", sentenceZh: "请排队站好。" },
+      { en: "lead", zh: "带领", emoji: "🚩", sentenceEn: "I can lead the way.", sentenceZh: "我可以带路。" },
+      { en: "way", zh: "路线；方法", emoji: "🛤️", sentenceEn: "This is the way.", sentenceZh: "这是路线。" },
+      { en: "carry", zh: "搬运", emoji: "📦", sentenceEn: "I can carry food boxes.", sentenceZh: "我可以搬运餐盒。" },
+      { en: "food", zh: "食物", emoji: "🍱", sentenceEn: "Hand out food, please.", sentenceZh: "请分发食物。" },
+      { en: "out", zh: "（拿）出", emoji: "↗️", sentenceEn: "Hand out papers.", sentenceZh: "分发试卷。" },
+      { en: "paper", zh: "试卷；纸", emoji: "📄", sentenceEn: "Please hand out paper.", sentenceZh: "请分发纸张。" },
+      { en: "lunch", zh: "午餐", emoji: "🍽️", sentenceEn: "It is time for lunch.", sentenceZh: "到午餐时间了。" },
+    ],
+    [
+      { en: "light", zh: "灯；轻的", emoji: "💡", sentenceEn: "Turn on the light.", sentenceZh: "打开灯。" },
+      { en: "blackboard", zh: "黑板", emoji: "🧑‍🏫", sentenceEn: "Clean the blackboard.", sentenceZh: "擦黑板。" },
+      { en: "door", zh: "门", emoji: "🚪", sentenceEn: "Hold the door, please.", sentenceZh: "请扶住门。" },
+      { en: "plant", zh: "植物", emoji: "🪴", sentenceEn: "Water the plant.", sentenceZh: "给植物浇水。" },
+      { en: "Monday", zh: "星期一", emoji: "📅", sentenceEn: "Monday is duty day.", sentenceZh: "星期一是值日的日子。" },
+      { en: "April", zh: "四月", emoji: "🌷", sentenceEn: "April is a nice month.", sentenceZh: "四月是美好的月份。" },
+      { en: "he", zh: "他", emoji: "👦", sentenceEn: "He is a line leader.", sentenceZh: "他是列队小帮手。" },
+      { en: "such", zh: "非常；这样的", emoji: "✨", sentenceEn: "He is such a good helper.", sentenceZh: "他真是一个好帮手。" },
+      { en: "should", zh: "应该", emoji: "✅", sentenceEn: "You should keep to the right.", sentenceZh: "你应该靠右行走。" },
+      { en: "some", zh: "一些", emoji: "🔢", sentenceEn: "Please hand out some papers.", sentenceZh: "请分发一些试卷。" },
+    ],
+    [
+      { en: "say nice words", zh: "用语得体", emoji: "💬", sentenceEn: "We should say nice words.", sentenceZh: "我们应该用语得体。" },
+      { en: "give a helping hand", zh: "向别人伸出援手", emoji: "🤝", sentenceEn: "Please give a helping hand.", sentenceZh: "请向别人伸出援手。" },
+      { en: "put away your things", zh: "收拾好自己的东西", emoji: "🎒", sentenceEn: "Please put away your things.", sentenceZh: "请收拾好自己的东西。" },
+      { en: "listen carefully", zh: "仔细听", emoji: "👂", sentenceEn: "Listen carefully in class.", sentenceZh: "课堂上要仔细听。" },
+      { en: "What rules do you like?", zh: "你喜欢哪些规则？", emoji: "📋", sentenceEn: "What rules do you like?", sentenceZh: "你喜欢哪些规则？" },
+      { en: "I like ...", zh: "我喜欢“……”。", emoji: "❤️", sentenceEn: "I like ...", sentenceZh: "我喜欢“……”。" },
+    ],
+    [
+      { en: "hand out food", zh: "分发食物", emoji: "🍱", sentenceEn: "I can hand out food.", sentenceZh: "我可以分发食物。" },
+      { en: "hand out papers", zh: "分发试卷", emoji: "📄", sentenceEn: "I can hand out papers.", sentenceZh: "我可以分发试卷。" },
+      { en: "put away books", zh: "整理书本", emoji: "📚", sentenceEn: "Please put away books.", sentenceZh: "请整理书本。" },
+      { en: "What do you want to be?", zh: "你想当什么？", emoji: "❓", sentenceEn: "What do you want to be?", sentenceZh: "你想当什么？" },
+      { en: "I want to be a/an ...", zh: "我想当一个……", emoji: "🌟", sentenceEn: "I want to be a/an ...", sentenceZh: "我想当一个……" },
+      { en: "What do you want to do?", zh: "你想做什么？", emoji: "📝", sentenceEn: "What do you want to do?", sentenceZh: "你想做什么？" },
+      { en: "I want to ...", zh: "我想做……", emoji: "🙋", sentenceEn: "I want to ...", sentenceZh: "我想做……" },
+    ],
+    [
+      { en: "on duty", zh: "值日", emoji: "🧹", sentenceEn: "I am on duty today.", sentenceZh: "我今天值日。" },
+      { en: "line leader", zh: "列队小帮手", emoji: "🚩", sentenceEn: "He is the line leader.", sentenceZh: "他是列队小帮手。" },
+      { en: "lunch helper", zh: "午饭小帮手", emoji: "🍱", sentenceEn: "She is the lunch helper.", sentenceZh: "她是午饭小帮手。" },
+      { en: "teacher helper", zh: "老师小帮手", emoji: "🧑‍🏫", sentenceEn: "I want to be a teacher helper.", sentenceZh: "我想当老师小帮手。" },
+      { en: "help everyone stand in line", zh: "帮助大家站好队", emoji: "👫", sentenceEn: "Help everyone stand in line.", sentenceZh: "帮助大家站好队。" },
+      { en: "lead the way", zh: "在队列中带路", emoji: "🛤️", sentenceEn: "The line leader can lead the way.", sentenceZh: "列队小帮手可以带路。" },
+      { en: "carry food boxes", zh: "搬运餐盒", emoji: "📦", sentenceEn: "The lunch helper can carry food boxes.", sentenceZh: "午饭小帮手可以搬运餐盒。" },
+      { en: "keep to the right", zh: "靠右行走", emoji: "➡️", sentenceEn: "Please keep to the right.", sentenceZh: "请靠右行走。" },
+      { en: "get in line", zh: "排队", emoji: "🚶", sentenceEn: "Please get in line.", sentenceZh: "请排队。" },
+      { en: "hold the door", zh: "扶住门", emoji: "🚪", sentenceEn: "Please hold the door.", sentenceZh: "请扶住门。" },
+      { en: 'say "excuse me"', zh: "说“不好意思”", emoji: "🙇", sentenceEn: 'Please say "excuse me".', sentenceZh: "请说“不好意思”。" },
+      { en: "don't run in the hallway", zh: "不要在走廊里奔跑", emoji: "🚫", sentenceEn: "Don't run in the hallway.", sentenceZh: "不要在走廊里奔跑。" },
+      { en: "keep your voice down", zh: "小声说话", emoji: "🤫", sentenceEn: "Please keep your voice down.", sentenceZh: "请小声说话。" },
+    ],
+  ];
+
+  const U7_WORDS = U7_WORD_LEVELS.reduce((all, group) => all.concat(group), []);
 
   const ABC = "abcdefghijklmnopqrstuvwxyz".split("");
   const PRAISE_LINES = ["真棒！", "太厉害啦！", "学术蛙进化中！", "继续保持！", "答得漂亮！"];
@@ -636,7 +696,7 @@
 
   async function preloadHumanAudio() {
     const texts = new Set();
-    WORDS.concat(U6_WORDS).forEach((w) => {
+    WORDS.concat(U6_WORDS, U7_WORDS).forEach((w) => {
       texts.add(w.en);
       texts.add(w.sentenceEn);
     });
@@ -696,7 +756,9 @@
 
   function buildMissingLetterTasks(word) {
     const letters = word.en.toLowerCase().split("");
-    const base = letters.map((ch, i) => {
+    const fillableIndexes = letters.map((ch, i) => (/[a-z]/.test(ch) ? i : -1)).filter((i) => i >= 0);
+    const base = fillableIndexes.map((i) => {
+      const ch = letters[i];
       const chars = new Set([ch]);
       shuffle(ABC).forEach((x) => {
         if (chars.size < 4) chars.add(x);
@@ -714,8 +776,11 @@
   function buildWordBlock(word, groupName, wordPool) {
     const pool = wordPool || WORDS;
     const sentenceTokens = tokenizeSentence(word.sentenceEn);
-    const pattern = new RegExp("\\b" + escapeRegExp(word.en) + "\\b", "i");
-    const sentenceBlank = word.sentenceEn.replace(pattern, "______");
+    const strictPattern = new RegExp("\\b" + escapeRegExp(word.en) + "\\b", "i");
+    const loosePattern = new RegExp(escapeRegExp(word.en), "i");
+    const sentenceBlank = strictPattern.test(word.sentenceEn)
+      ? word.sentenceEn.replace(strictPattern, "______")
+      : word.sentenceEn.replace(loosePattern, "______");
     const sentenceWordOptions = shuffle([word.en, ...wrongWordsFromPool(word.en, 3, pool)]);
     return [
       { kind: "W1", cat: "word", title: groupName + " · 听音识图", word, emojis: shuffle([word.emoji, ...shuffle(pool.map((w) => w.emoji).filter((e) => e !== word.emoji)).slice(0, 3)]) },
@@ -739,10 +804,12 @@
   }
 
   function buildU6WordLevelSteps(level) {
-    const words = U6_WORD_LEVELS[level - 21] || [];
+    const isU6ReviewLevel = level >= 21 && level <= 25;
+    const words = isU6ReviewLevel ? U6_WORD_LEVELS[level - 21] || [] : U7_WORD_LEVELS[level - 26] || [];
+    const pool = isU6ReviewLevel ? U6_WORDS : U7_WORDS;
     const groupNames = ["第一组", "第二组", "第三组"];
     return words.reduce((steps, word, idx) => {
-      return steps.concat(buildWordBlock(word, groupNames[idx] || "第" + (idx + 1) + "组", U6_WORDS));
+      return steps.concat(buildWordBlock(word, groupNames[idx] || "第" + (idx + 1) + "组", pool));
     }, []);
   }
 
@@ -2370,7 +2437,7 @@
     for (let lv = 1; lv <= MAX_LEVEL; lv++) {
       const [w1, w2] = getWordPair(lv);
       let steps;
-      if (lv >= 21 && lv <= 25) {
+      if (lv >= 21 && lv <= 30) {
         steps = buildU6WordLevelSteps(lv);
       } else if (lv === 7 || lv === 8) {
         steps = buildReviewLevelSteps(lv, w1, w2);
