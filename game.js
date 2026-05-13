@@ -2671,6 +2671,7 @@
   let autoAdvanceTimer = null;
   let autoRetryTimer = null;
   let lastRenderedLevel = null;
+  let expandedRouteGroupKey = "";
   let levelStartCelebrationShown = null;
   let teacherAccessUnlocked = false;
   /** 同一关同一环节内连续选错次数（用于第 5 次后显示「跳过」） */
@@ -2681,6 +2682,8 @@
   let teacherAccountsCache = [];
   const TEACHER_ENTRY_CODE = "frog2026";
   const OUTFITS = ["🎀", "🕶️", "🎓", "🧣", "🧢", "🥽", "🎧", "💚", "🌟", "🪄"];
+  const FRUIT_REWARDS = ["🍎", "🍊", "🍇", "🍉", "🍓"];
+  const VEGETABLE_REWARDS = ["🌽", "🍆", "🥕", "🥦", "🍅", "🥬", "🥒", "🫑", "🥔", "🧅"];
   const LEVEL_OUTFIT_BY_ID = {
     21: { head: "🥕", left: "🥕", right: "🥕" },
     22: { head: "🥦", left: "🥦", right: "🥦" },
@@ -2703,6 +2706,12 @@
   };
 
   function getOutfitForLevel(level) {
+    if (level >= 26 && level <= 30) {
+      return { headItems: FRUIT_REWARDS.slice(0, level - 25) };
+    }
+    if (level >= 31 && level <= 40) {
+      return { headItems: VEGETABLE_REWARDS.slice(0, level - 30) };
+    }
     if (LEVEL_OUTFIT_BY_ID[level]) return LEVEL_OUTFIT_BY_ID[level];
     const outfitCount = Math.max(0, level - 1);
     const outfit = outfitCount > 0 ? OUTFITS[(outfitCount - 1) % OUTFITS.length] : "";
@@ -2713,6 +2722,20 @@
     if (!frogOutfit) return;
     frogOutfit.textContent = "";
     if (outfit && typeof outfit === "object") {
+      if (Array.isArray(outfit.headItems)) {
+        const total = outfit.headItems.length;
+        outfit.headItems.forEach((icon, idx) => {
+          const side = idx % 2 === 0 ? "left-side" : "right-side";
+          const sideIdx = Math.floor(idx / 2);
+          const item = el("span", "frog-veggie frog-veggie--side frog-veggie--" + side, icon);
+          item.setAttribute("aria-hidden", "true");
+          item.style.top = 70 + sideIdx * 42 + "px";
+          item.style.transform = "translateY(-50%) rotate(" + (side === "left-side" ? -8 : 8) + "deg)";
+          frogOutfit.appendChild(item);
+        });
+        applyOutfitPlacement("vegetable");
+        return;
+      }
       [
         ["head", outfit.head],
         ["hand-l", outfit.left],
@@ -2774,6 +2797,58 @@
   function renderRoute() {
     if (!stoneRoute) return;
     stoneRoute.innerHTML = "";
+    const routeGroups = [
+      { key: "1-10", label: "第1-10关", start: 1, end: 10 },
+      { key: "21-30", label: "第21-30关", start: 21, end: 30 },
+    ];
+    const activeGroup = routeGroups.find((g) => state.currentLevel >= g.start && state.currentLevel <= g.end);
+    if (!expandedRouteGroupKey && activeGroup) expandedRouteGroupKey = activeGroup.key;
+
+    routeGroups.forEach((group, groupIdx) => {
+      const groupBtn = el("button", "stone-node stone-node--group", group.label);
+      groupBtn.type = "button";
+      groupBtn.classList.add(groupIdx % 2 === 0 ? "stone-node--left" : "stone-node--right");
+      const groupHasCurrent = state.currentLevel >= group.start && state.currentLevel <= group.end;
+      const groupExpanded = expandedRouteGroupKey === group.key;
+      if (groupHasCurrent) groupBtn.classList.add("stone-node--current");
+      if (groupExpanded) groupBtn.classList.add("stone-node--group-open");
+      groupBtn.addEventListener("click", () => {
+        expandedRouteGroupKey = groupExpanded ? "" : group.key;
+        renderRoute();
+      });
+      stoneRoute.appendChild(groupBtn);
+
+      if (groupExpanded) {
+        const list = el("div", "stone-route__group-list", "");
+        for (let i = group.start; i <= Math.min(group.end, MAX_LEVEL); i++) {
+          const b = el("button", "stone-node stone-node--small", "第" + i + "关");
+          const sideCls = i % 2 === 0 ? "stone-node--right" : "stone-node--left";
+          b.classList.add(sideCls);
+          if (getLevelPlayCount(i) >= 3) {
+            b.classList.add("stone-node--gold");
+          } else if (i < state.currentLevel) {
+            b.classList.add("stone-node--done");
+          }
+          if (i === state.currentLevel) b.classList.add("stone-node--current");
+          b.type = "button";
+          b.addEventListener("click", () => {
+            applyLevelChoiceInUi(i);
+          });
+          list.appendChild(b);
+          if (i < Math.min(group.end, MAX_LEVEL)) {
+            const c = el("div", "stone-connector", "");
+            c.classList.add(i % 2 === 0 ? "stone-connector--right" : "stone-connector--left");
+            list.appendChild(c);
+          }
+        }
+        stoneRoute.appendChild(list);
+      }
+
+      if (groupIdx < routeGroups.length - 1) {
+        stoneRoute.appendChild(el("div", "stone-connector stone-connector--group", ""));
+      }
+    });
+    /*
     const max = MAX_LEVEL;
     for (let i = 1; i <= max; i++) {
       const b = el("button", "stone-node", "第" + i + "关");
@@ -2796,6 +2871,7 @@
         stoneRoute.appendChild(c);
       }
     }
+    */
   }
 
   function sortLeaderboard(list) {
