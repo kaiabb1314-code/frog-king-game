@@ -18,7 +18,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
-  const MAX_LEVEL = 30;
+  const MAX_LEVEL = 31;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -134,6 +134,19 @@
   ];
 
   const U7_WORDS = U7_WORD_LEVELS.reduce((all, group) => all.concat(group), []);
+
+  const L31_PHRASES = [
+    { en: "put away books", zh: "整理书本", image: "assets/u7/classroom-actions-strip.png" },
+    { en: "water the plants", zh: "给植物浇水", image: "assets/u7/classroom-actions-grid.png" },
+    { en: "hold the door", zh: "扶住门", image: "assets/u7/classroom-actions-grid.png" },
+    { en: "turn on/off the lights", zh: "开/关灯", image: "assets/u7/classroom-actions-strip.png" },
+    { en: "clean the blackboard", zh: "擦黑板", image: "assets/u7/classroom-actions-grid.png" },
+    { en: "help everyone stand in line", zh: "帮助大家站好队", image: "assets/u7/classroom-jobs-poster.png" },
+    { en: "lead the way", zh: "带路", image: "assets/u7/classroom-jobs-poster.png" },
+    { en: "hand out papers", zh: "分发试卷", image: "assets/u7/classroom-jobs-poster.png" },
+    { en: "hand out food", zh: "分发食物", image: "assets/u7/classroom-jobs-poster.png" },
+    { en: "carry food boxes", zh: "搬运餐盒", image: "assets/u7/classroom-jobs-poster.png" },
+  ];
 
   const ABC = "abcdefghijklmnopqrstuvwxyz".split("");
   const PRAISE_LINES = ["真棒！", "太厉害啦！", "学术蛙进化中！", "继续保持！", "答得漂亮！"];
@@ -811,6 +824,31 @@
     return words.reduce((steps, word, idx) => {
       return steps.concat(buildWordBlock(word, groupNames[idx] || "第" + (idx + 1) + "组", pool));
     }, []);
+  }
+
+  function buildL31PhraseOptions(target) {
+    return shuffle([target, ...shuffle(L31_PHRASES.map((p) => p.en).filter((x) => x !== target)).slice(0, 3)]);
+  }
+
+  function buildLevel31Steps() {
+    const pictureSteps = L31_PHRASES.map((p, idx) => ({
+      kind: "L31PIC",
+      cat: "phrase",
+      title: "第31关 · 看图选短语 " + (idx + 1) + " / " + L31_PHRASES.length,
+      image: p.image,
+      promptZh: p.zh,
+      target: p.en,
+      options: buildL31PhraseOptions(p.en),
+    }));
+    const translateSteps = L31_PHRASES.map((p, idx) => ({
+      kind: "L17B",
+      cat: "phrase",
+      title: "第31关 · 中译英 " + (idx + 1) + " / " + L31_PHRASES.length,
+      phrase: { en: p.en, zh: p.zh, emoji: "🏫" },
+      target: p.en,
+      options: buildL31PhraseOptions(p.en),
+    }));
+    return pictureSteps.concat(translateSteps);
   }
 
   const REVIEW_BANK = [
@@ -2437,7 +2475,9 @@
     for (let lv = 1; lv <= MAX_LEVEL; lv++) {
       const [w1, w2] = getWordPair(lv);
       let steps;
-      if (lv >= 21 && lv <= 30) {
+      if (lv === 31) {
+        steps = buildLevel31Steps();
+      } else if (lv >= 21 && lv <= 30) {
         steps = buildU6WordLevelSteps(lv);
       } else if (lv === 7 || lv === 8) {
         steps = buildReviewLevelSteps(lv, w1, w2);
@@ -2799,7 +2839,7 @@
     stoneRoute.innerHTML = "";
     const routeGroups = [
       { key: "1-10", label: "第1-10关", start: 1, end: 10 },
-      { key: "21-30", label: "第21-30关", start: 21, end: 30 },
+      { key: "21-31", label: "第21-31关", start: 21, end: 31 },
     ];
     const activeGroup = routeGroups.find((g) => state.currentLevel >= g.start && state.currentLevel <= g.end);
     if (!expandedRouteGroupKey && activeGroup) expandedRouteGroupKey = activeGroup.key;
@@ -5227,6 +5267,43 @@
     root.appendChild(answerKey);
   }
 
+  function renderL31PictureChoice(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt prompt--sub", "观察图片，找到对应的课堂工作动作，再选择英文短语。"));
+    const card = el("div", "l31-picture-card", "");
+    const img = document.createElement("img");
+    img.src = step.image;
+    img.alt = "第31关课堂工作图片";
+    img.loading = "lazy";
+    card.appendChild(img);
+    root.appendChild(card);
+    const zh = String(step.promptZh || "").trim();
+    root.appendChild(el("div", "prompt", "“" + zh + "” 的英文是？"));
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid choice-grid--l17-phrase");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn choice-btn--phrase", opt);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        if (u5TextEq(opt, step.target)) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>正确答案：</strong> " + step.target);
+    });
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
   function renderL17D(step) {
     renderHeader(step);
     root.appendChild(el("div", "prompt prompt--sub", "听中文后，选出对应的英文短语"));
@@ -6628,6 +6705,7 @@
     L17E: renderL17E,
     L17F: (s) => renderSentenceBuilder(s, false),
     L17MT: renderL17ImageMatch,
+    L31PIC: renderL31PictureChoice,
     L18IMG: renderL18Img,
     L18C: renderL18C,
     L18F: renderL18F,
