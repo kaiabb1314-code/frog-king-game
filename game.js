@@ -18,7 +18,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
-  const MAX_LEVEL = 31;
+  const MAX_LEVEL = 34;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -146,6 +146,118 @@
     { en: "hand out papers", zh: "分发试卷", image: "assets/u7/classroom-jobs-poster.png" },
     { en: "hand out food", zh: "分发食物", image: "assets/u7/classroom-jobs-poster.png" },
     { en: "carry food boxes", zh: "搬运餐盒", image: "assets/u7/classroom-jobs-poster.png" },
+  ];
+
+  const L32_TASK1_OPTIONS = [
+    { key: "A", text: "carry food boxes" },
+    { key: "B", text: "lead the way" },
+    { key: "C", text: "put away books" },
+    { key: "D", text: "help everyone stand in line" },
+    { key: "E", text: "hand out papers" },
+    { key: "F", text: "hand out food" },
+  ];
+
+  const L32_TASK2_OPTIONS = [
+    { key: "A", text: "What about" },
+    { key: "B", text: "want to be" },
+    { key: "C", text: "plant helper" },
+    { key: "D", text: "blackboard cleaner" },
+    { key: "E", text: "book helper" },
+  ];
+
+  const L33_SECTION5_OPTIONS = [
+    { key: "A", text: "Line Leader" },
+    { key: "B", text: "Lunch Helper" },
+    { key: "C", text: "Blackboard Cleaner" },
+    { key: "D", text: "Teacher Helper" },
+  ];
+
+  const L33_SECTION6_OPTIONS = [
+    { key: "A", text: "Line Leader" },
+    { key: "B", text: "Lunch Helper" },
+    { key: "C", text: "Teacher Helper" },
+    { key: "D", text: "Light Helper" },
+    { key: "E", text: "Blackboard Cleaner" },
+    { key: "F", text: "Door Holder" },
+    { key: "G", text: "Book Helper" },
+    { key: "H", text: "Plant Helper" },
+  ];
+
+  const L33_SECTION7_OPTIONS = [
+    { key: "A", text: "I want to help my teachers." },
+    { key: "B", text: "I want to be a line leader." },
+    { key: "C", text: "I carry food boxes and hand out food." },
+    { key: "D", text: "I want to help everyone get his or her lunch." },
+    { key: "E", text: "What do you want to be?" },
+  ];
+
+  const L33_SECTION1_TASK1_OPTIONS = [
+    { key: "A", text: "Line Leader" },
+    { key: "B", text: "Blackboard Cleaner" },
+    { key: "C", text: "Lunch Helper" },
+  ];
+
+  const L33_SECTION1_TASK3_OPTIONS = [
+    { key: "A", text: "Li Ming" },
+    { key: "B", text: "Alice" },
+    { key: "C", text: "Ben" },
+  ];
+
+  const L34_WRITE_ITEMS = [
+    { zh: "值日", en: "on duty" },
+    { zh: "列队小帮手", en: "line leader" },
+    { zh: "教室小帮手", en: "classroom helper" },
+    { zh: "老师小帮手", en: "teacher helper" },
+    { zh: "午饭小帮手", en: "lunch helper" },
+    { zh: "电灯小帮手", en: "light helper" },
+    { zh: "植物小帮手", en: "plant helper" },
+    { zh: "擦黑板小帮手", en: "blackboard cleaner" },
+    { zh: "扶门小帮手", en: "door holder" },
+    { zh: "电脑小帮手", en: "computer helper" },
+    { zh: "书本小帮手", en: "book helper" },
+    { zh: "帮助大家站好队", en: "help everyone stand in line" },
+    { zh: "在队列中带路", en: "lead the way" },
+    { zh: "整理书本", en: "put away books" },
+    { zh: "分发试卷", en: "hand out papers" },
+    { zh: "搬运餐盒", en: "carry food boxes" },
+    { zh: "分发食物", en: "hand out food" },
+  ];
+
+  const L34_CLASSIFY_OPTIONS = [
+    { key: "A", text: "say nice words" },
+    { key: "B", text: "line leader" },
+    { key: "C", text: "lead the way" },
+    { key: "D", text: "lunch helper" },
+    { key: "E", text: "hand out papers" },
+    { key: "F", text: "listen carefully" },
+    { key: "G", text: "teacher helper" },
+    { key: "H", text: "help everyone stand in line" },
+    { key: "I", text: "carry food boxes" },
+  ];
+
+  const L34_COMPLETE_OPTIONS = [
+    [
+      { key: "A", text: "lead the way" },
+      { key: "B", text: "hand out papers" },
+      { key: "C", text: "hand out food" },
+    ],
+    [
+      { key: "A", text: "door holder" },
+      { key: "B", text: "plant helper" },
+      { key: "C", text: "lunch helper" },
+    ],
+    [
+      { key: "A", text: "/" },
+      { key: "B", text: "to be" },
+      { key: "C", text: "be" },
+    ],
+  ];
+
+  const L34_DIALOGUE_OPTIONS = [
+    { key: "A", text: "I want to be the line leader." },
+    { key: "B", text: "We are teacher helpers." },
+    { key: "C", text: "What do you want to be?" },
+    { key: "D", text: "Today I hand out papers for Mr Lee." },
   ];
 
   const ABC = "abcdefghijklmnopqrstuvwxyz".split("");
@@ -849,6 +961,202 @@
       options: buildL31PhraseOptions(p.en),
     }));
     return pictureSteps.concat(translateSteps);
+  }
+
+  function buildLevel32Steps() {
+    const task1Answers = ["D", "B", "A", "F", "E", "C"];
+    const task2Answers = ["B", "E", "A", "D", "C"];
+    const task1Steps = task1Answers.map((answer, idx) => ({
+      kind: "L32BLANK",
+      cat: "phrase",
+      title: "第32关 · 任务一 · 第" + (idx + 1) + "空",
+      image: "assets/u7/level32-task1.png",
+      prompt: "看图和选项，选择第 " + (idx + 1) + " 空应填的字母。",
+      blankLabel: String(idx + 1),
+      target: answer,
+      options: L32_TASK1_OPTIONS,
+    }));
+    const task2Steps = task2Answers.map((answer, idx) => ({
+      kind: "L32BLANK",
+      cat: "phrase",
+      title: "第32关 · 任务二 · 第" + (idx + 7) + "空",
+      image: "assets/u7/level32-task2.png",
+      prompt: "读对话和选项，选择第 " + (idx + 7) + " 空应填的字母。",
+      blankLabel: String(idx + 7),
+      target: answer,
+      options: L32_TASK2_OPTIONS,
+    }));
+    return task1Steps.concat(task2Steps);
+  }
+
+  function buildLetterChoiceSteps(config) {
+    return config.answers.map((answer, idx) => ({
+      kind: "L32BLANK",
+      cat: "phrase",
+      title: config.titlePrefix + " · 第" + (idx + 1) + "题",
+      image: config.image,
+      prompt: config.prompt.replace("{n}", String(config.startLabel + idx)),
+      blankLabel: String(config.startLabel + idx),
+      target: answer,
+      options: config.options,
+    }));
+  }
+
+  function buildLevel33Steps() {
+    const section5 = buildLetterChoiceSteps({
+      titlePrefix: "第33关 · 五",
+      image: "assets/u7/level33-section5.png",
+      prompt: "读自述，选择第 {n} 题对应的班级岗位。",
+      startLabel: 1,
+      answers: ["D", "A", "B", "C"],
+      options: L33_SECTION5_OPTIONS,
+    });
+    const section6 = buildLetterChoiceSteps({
+      titlePrefix: "第33关 · 六",
+      image: "assets/u7/level33-section6.png",
+      prompt: "看图片，把第 {n} 个岗位标签填到对应位置。",
+      startLabel: 1,
+      answers: ["F", "D", "C", "G", "A", "B", "H", "E"],
+      options: L33_SECTION6_OPTIONS,
+    });
+    const section7 = buildLetterChoiceSteps({
+      titlePrefix: "第33关 · 七",
+      image: "assets/u7/level33-section7.png",
+      prompt: "读真实情境对话，选择第 {n} 空应填的句子。",
+      startLabel: 1,
+      answers: ["E", "D", "C", "A", "B"],
+      options: L33_SECTION7_OPTIONS,
+    });
+    const section1Task1 = buildLetterChoiceSteps({
+      titlePrefix: "第33关 · 一 · 任务一",
+      image: "assets/u7/level33-section1.png",
+      prompt: "读感谢卡，选择第 {n} 空对应的小帮手岗位。",
+      startLabel: 1,
+      answers: ["C", "A", "B"],
+      options: L33_SECTION1_TASK1_OPTIONS,
+    });
+    const section1Task2 = ["F", "T", "F", "T"].map((answer, idx) => ({
+      kind: "L32BLANK",
+      cat: "phrase",
+      title: "第33关 · 一 · 任务二 · 第" + (idx + 4) + "题",
+      image: "assets/u7/level33-section1.png",
+      prompt: "判断第 " + (idx + 4) + " 题正误，正确选 T，错误选 F。",
+      blankLabel: String(idx + 4),
+      target: answer,
+      options: [
+        { key: "T", text: "True" },
+        { key: "F", text: "False" },
+      ],
+    }));
+    const section1Task3 = buildLetterChoiceSteps({
+      titlePrefix: "第33关 · 一 · 任务三",
+      image: "assets/u7/level33-section1.png",
+      prompt: "选择第 {n} 题的正确答案。",
+      startLabel: 8,
+      answers: ["A"],
+      options: L33_SECTION1_TASK3_OPTIONS,
+    });
+    return section5.concat(section6, section7, section1Task1, section1Task2, section1Task3);
+  }
+
+  function buildLevel34Steps() {
+    const writeMindmap = L34_WRITE_ITEMS.map((item, idx) => ({
+      kind: "L34WRITE",
+      cat: "phrase",
+      title: "第34关 · 一 · 中文默写英文 " + (idx + 1) + " / " + L34_WRITE_ITEMS.length,
+      image: "assets/u7/level34-mindmap.png",
+      promptZh: item.zh,
+      target: item.en,
+    }));
+    const classify = [
+      { label: "Rules", targetKeys: ["A", "F"] },
+      { label: "Classroom Jobs", targetKeys: ["B", "D", "G"] },
+      { label: "Duties", targetKeys: ["C", "E", "H", "I"] },
+    ].map((row, idx) => ({
+      kind: "L34MULTI",
+      cat: "phrase",
+      title: "第34关 · 三 · 语块分类 " + (idx + 1) + " / 3",
+      image: "assets/u7/level34-classify.png",
+      prompt: "请选择属于 “" + row.label + "” 的所有字母。",
+      targetKeys: row.targetKeys,
+      options: L34_CLASSIFY_OPTIONS,
+    }));
+    const complete = ["B", "C", "B"].map((answer, idx) => ({
+      kind: "L32BLANK",
+      cat: "phrase",
+      title: "第34关 · 四 · 第" + (idx + 1) + "题",
+      image: "assets/u7/level34-complete.png",
+      prompt: "选择第 " + (idx + 1) + " 题正确的选项，补全句子或对话。",
+      blankLabel: String(idx + 1),
+      target: answer,
+      options: L34_COMPLETE_OPTIONS[idx],
+    }));
+    const writeDuties = [
+      "I hand out food.",
+      "I lead the way.",
+      "I clean the blackboard.",
+      "I carry food boxes.",
+      "I put away books.",
+    ].map((answer, idx) => ({
+      kind: "L34WRITE",
+      cat: "phrase",
+      title: "第34关 · 五 · 写职责 " + (idx + 1) + " / 5",
+      image: "assets/u7/level34-page7.png",
+      promptZh: "根据图片写职责句，开头是 I：第 " + (idx + 1) + " 题",
+      target: answer,
+    }));
+    const page7 = [
+      "put away books",
+      "hand out food",
+      "lead the way",
+    ].map((answer, idx) => ({
+      kind: "L34WRITE",
+      cat: "phrase",
+      title: "第34关 · 七 · 写职责短语 " + (idx + 1) + " / 3",
+      image: "assets/u7/level34-page7.png",
+      promptZh: "根据图片补全第 " + (idx + 1) + " 空的 Duty",
+      target: answer,
+    }));
+    const dialogue = ["C", "A", "B", "D"].map((answer, idx) => ({
+      kind: "L32BLANK",
+      cat: "phrase",
+      title: "第34关 · 五 · 真实情境 · 第" + (idx + 1) + "空",
+      image: "assets/u7/level34-dialogue.png",
+      prompt: "根据对话选择第 " + (idx + 1) + " 空应填的句子。",
+      blankLabel: String(idx + 1),
+      target: answer,
+      options: L34_DIALOGUE_OPTIONS,
+    }));
+    const page8 = ["B", "D", "E", "C", "A"].map((answer, idx) => ({
+      kind: "L32BLANK",
+      cat: "phrase",
+      title: "第34关 · 八 · 还原场景 · 第" + (idx + 1) + "空",
+      image: "assets/u7/level34-page8.png",
+      prompt: "观察值日生工作照片，选择第 " + (idx + 1) + " 空恰当的句子。",
+      blankLabel: String(idx + 1),
+      target: answer,
+      options: [
+        { key: "A", text: "You're such a good helper." },
+        { key: "B", text: "Please get in line." },
+        { key: "C", text: "Let me help you out." },
+        { key: "D", text: "You can have some salad." },
+        { key: "E", text: "Please keep the classroom clean." },
+      ],
+    }));
+    const tableTf = ["F", "T", "T", "F", "T"].map((answer, idx) => ({
+      kind: "L32BLANK",
+      cat: "phrase",
+      title: "第34关 · 六 · 判断正误 · 第" + (idx + 1) + "题",
+      image: "assets/u7/level34-table.png",
+      prompt: "根据表格判断第 " + (idx + 1) + " 题正误，正确选 T，错误选 F。",
+      blankLabel: String(idx + 1),
+      target: answer,
+      options: [
+        { key: "T", text: "True" },
+        { key: "F", text: "False" },
+      ],
+    }));
+    return writeMindmap.concat(classify, complete, writeDuties, dialogue, tableTf, page7, page8);
   }
 
   const REVIEW_BANK = [
@@ -2475,7 +2783,13 @@
     for (let lv = 1; lv <= MAX_LEVEL; lv++) {
       const [w1, w2] = getWordPair(lv);
       let steps;
-      if (lv === 31) {
+      if (lv === 34) {
+        steps = buildLevel34Steps();
+      } else if (lv === 33) {
+        steps = buildLevel33Steps();
+      } else if (lv === 32) {
+        steps = buildLevel32Steps();
+      } else if (lv === 31) {
         steps = buildLevel31Steps();
       } else if (lv >= 21 && lv <= 30) {
         steps = buildU6WordLevelSteps(lv);
@@ -2839,7 +3153,8 @@
     stoneRoute.innerHTML = "";
     const routeGroups = [
       { key: "1-10", label: "第1-10关", start: 1, end: 10 },
-      { key: "21-31", label: "第21-31关", start: 21, end: 31 },
+      { key: "21-30", label: "第21-30关", start: 21, end: 30 },
+      { key: "31-40", label: "第31-40关", start: 31, end: 40 },
     ];
     const activeGroup = routeGroups.find((g) => state.currentLevel >= g.start && state.currentLevel <= g.end);
     if (!expandedRouteGroupKey && activeGroup) expandedRouteGroupKey = activeGroup.key;
@@ -5304,6 +5619,164 @@
     root.appendChild(answerKey);
   }
 
+  function renderL32BlankChoice(step) {
+    renderHeader(step);
+    root.appendChild(el("div", "prompt prompt--sub", step.prompt || "请选择正确答案。"));
+    const card = el("div", "l31-picture-card l32-picture-card", "");
+    const img = document.createElement("img");
+    img.src = step.image;
+    img.alt = "第32关题目图片";
+    img.loading = "lazy";
+    card.appendChild(img);
+    root.appendChild(card);
+    root.appendChild(el("div", "prompt", "第 " + step.blankLabel + " 空选择："));
+    const answerKey = createAnswerKey();
+    const grid = el("div", "choice-grid choice-grid--l17-phrase");
+    (step.options || []).forEach((opt) => {
+      const label = opt.key + ". " + opt.text;
+      const b = el("button", "choice-btn choice-btn--phrase", label);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        if (String(opt.key).toUpperCase() === String(step.target).toUpperCase()) {
+          b.classList.add("choice-btn--correct");
+          stepStatus.markCorrect();
+        } else {
+          b.classList.add("choice-btn--wrong");
+          stepStatus.markWrong();
+        }
+        updateHud();
+      });
+      grid.appendChild(b);
+    });
+    stepStatus.setReveal(() => {
+      const correct = (step.options || []).find((opt) => String(opt.key).toUpperCase() === String(step.target).toUpperCase());
+      revealKey(answerKey, "<strong>正确答案：</strong> " + step.target + (correct ? ". " + correct.text : ""));
+    });
+    root.appendChild(grid);
+    root.appendChild(answerKey);
+  }
+
+  function normalizeTypedAnswerText(text) {
+    return String(text || "")
+      .toLowerCase()
+      .replace(/[“”"]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function renderL34WritingStep(step) {
+    renderHeader(step);
+    if (step.image) {
+      const card = el("div", "l31-picture-card l34-picture-card", "");
+      const img = document.createElement("img");
+      img.src = step.image;
+      img.alt = "第34关参考图片";
+      img.loading = "lazy";
+      card.appendChild(img);
+      root.appendChild(card);
+    }
+    const target = String(step.target || "").trim();
+    root.appendChild(el("div", "prompt prompt--sub", "根据中文默写英文，大小写和标点不影响判断。"));
+    root.appendChild(el("div", "prompt", step.promptZh || "请默写英文"));
+    const answerKey = createAnswerKey();
+    const wrap = el("div", "dialogue-box", "");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "输入英文";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.style.width = "100%";
+    input.style.height = "46px";
+    input.style.fontSize = "18px";
+    input.style.borderRadius = "12px";
+    input.style.border = "2px solid #d8d8d8";
+    input.style.padding = "0 12px";
+    const btn = el("button", "btn-secondary", "提交检查");
+    btn.type = "button";
+    function check() {
+      if (stepStatus.graded || stepStatus.isCorrect) return;
+      const v = input.value.trim();
+      if (!v) return;
+      if (normalizeTypedAnswerText(v) === normalizeTypedAnswerText(target)) {
+        input.style.borderColor = "#58cc02";
+        stepStatus.markCorrect();
+      } else {
+        input.style.borderColor = "#ff4b4b";
+        stepStatus.markWrong();
+      }
+      updateHud();
+    }
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        check();
+      }
+    });
+    btn.addEventListener("click", check);
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>正确答案：</strong> " + target);
+      input.disabled = true;
+      btn.disabled = true;
+    });
+    wrap.appendChild(input);
+    wrap.appendChild(btn);
+    root.appendChild(wrap);
+    root.appendChild(answerKey);
+  }
+
+  function renderL34MultiChoice(step) {
+    renderHeader(step);
+    if (step.image) {
+      const card = el("div", "l31-picture-card l34-picture-card", "");
+      const img = document.createElement("img");
+      img.src = step.image;
+      img.alt = "第34关分类图片";
+      img.loading = "lazy";
+      card.appendChild(img);
+      root.appendChild(card);
+    }
+    root.appendChild(el("div", "prompt prompt--sub", step.prompt || "请选择所有正确选项。"));
+    const answerKey = createAnswerKey();
+    const selected = new Set();
+    const grid = el("div", "choice-grid choice-grid--l17-phrase");
+    (step.options || []).forEach((opt) => {
+      const b = el("button", "choice-btn choice-btn--phrase", opt.key + ". " + opt.text);
+      b.type = "button";
+      b.addEventListener("click", () => {
+        if (stepStatus.graded || stepStatus.isCorrect) return;
+        if (selected.has(opt.key)) {
+          selected.delete(opt.key);
+          b.classList.remove("choice-btn--selected");
+        } else {
+          selected.add(opt.key);
+          b.classList.add("choice-btn--selected");
+        }
+      });
+      grid.appendChild(b);
+    });
+    const btn = el("button", "btn-primary", "提交检查");
+    btn.type = "button";
+    btn.addEventListener("click", () => {
+      if (stepStatus.graded || stepStatus.isCorrect) return;
+      const got = Array.from(selected).sort().join("");
+      const want = (step.targetKeys || []).slice().sort().join("");
+      if (got === want) {
+        stepStatus.markCorrect();
+      } else {
+        stepStatus.markWrong();
+      }
+      updateHud();
+    });
+    stepStatus.setReveal(() => {
+      revealKey(answerKey, "<strong>正确答案：</strong> " + (step.targetKeys || []).join(", "));
+    });
+    root.appendChild(grid);
+    root.appendChild(btn);
+    root.appendChild(answerKey);
+  }
+
   function renderL17D(step) {
     renderHeader(step);
     root.appendChild(el("div", "prompt prompt--sub", "听中文后，选出对应的英文短语"));
@@ -6706,6 +7179,9 @@
     L17F: (s) => renderSentenceBuilder(s, false),
     L17MT: renderL17ImageMatch,
     L31PIC: renderL31PictureChoice,
+    L32BLANK: renderL32BlankChoice,
+    L34WRITE: renderL34WritingStep,
+    L34MULTI: renderL34MultiChoice,
     L18IMG: renderL18Img,
     L18C: renderL18C,
     L18F: renderL18F,

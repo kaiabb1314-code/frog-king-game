@@ -891,6 +891,14 @@ body {
   border-radius: 14px;
 }
 
+.l32-picture-card img {
+  max-height: 320px;
+}
+
+.l34-picture-card img {
+  max-height: 300px;
+}
+
 .frog-actor[data-mood="nod"] {
   animation: frog-nod 0.55s ease;
 }
