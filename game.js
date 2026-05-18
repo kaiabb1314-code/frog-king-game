@@ -18,7 +18,7 @@
   let SUPABASE_URL = "";
   let SUPABASE_ANON_KEY = "";
   let CLOUD_ENABLED = false;
-  const MAX_LEVEL = 34;
+  const MAX_LEVEL = 40;
 
   function refreshCloudConfig() {
     const localUrl = (localStorage.getItem(STORAGE_KEYS.cloudUrl) || "").trim();
@@ -130,6 +130,46 @@
       { en: 'say "excuse me"', zh: "说“不好意思”", emoji: "🙇", sentenceEn: 'Please say "excuse me".', sentenceZh: "请说“不好意思”。" },
       { en: "don't run in the hallway", zh: "不要在走廊里奔跑", emoji: "🚫", sentenceEn: "Don't run in the hallway.", sentenceZh: "不要在走廊里奔跑。" },
       { en: "keep your voice down", zh: "小声说话", emoji: "🤫", sentenceEn: "Please keep your voice down.", sentenceZh: "请小声说话。" },
+    ],
+    /** 第35–40关：校园礼仪与词汇（环节节奏同第26–30关 / 第1–8关单词块） */
+    [
+      { en: "keep to the right", zh: "靠右行走", emoji: "➡️", sentenceEn: "Please keep to the right.", sentenceZh: "请靠右行走。" },
+      { en: "get in line", zh: "排队", emoji: "🚶", sentenceEn: "Please get in line.", sentenceZh: "请排队。" },
+      { en: "hold the door", zh: "扶住门", emoji: "🚪", sentenceEn: "Please hold the door.", sentenceZh: "请扶住门。" },
+      { en: 'say "excuse me"', zh: "说“不好意思”", emoji: "🙇", sentenceEn: 'Please say "excuse me".', sentenceZh: "请说“不好意思”。" },
+    ],
+    [
+      { en: "don't run in the hallway", zh: "不要在走廊里奔跑", emoji: "🚫", sentenceEn: "Don't run in the hallway.", sentenceZh: "不要在走廊里奔跑。" },
+      { en: "keep your voice down", zh: "小声说话", emoji: "🤫", sentenceEn: "Please keep your voice down.", sentenceZh: "请小声说话。" },
+      { en: "don't eat or drink", zh: "不要吃喝", emoji: "🥤🚫", sentenceEn: "Don't eat or drink here.", sentenceZh: "不要在这里吃喝。" },
+      { en: "in the toilet", zh: "在厕所", emoji: "🚻", sentenceEn: "Wash your hands in the toilet.", sentenceZh: "在厕所里洗手。" },
+    ],
+    [
+      { en: "What should we do at school?", zh: "我们在学校里应该怎么做？", emoji: "🏫", sentenceEn: "What should we do at school?", sentenceZh: "我们在学校里应该怎么做？" },
+      { en: "We should ... and ...", zh: "我们应该……和……", emoji: "✅", sentenceEn: "We should ... and ... at school.", sentenceZh: "我们在学校里应该……和……。" },
+      { en: "Oh, sorry!", zh: "噢，抱歉！", emoji: "😅", sentenceEn: "Oh, sorry! I bumped you.", sentenceZh: "噢，抱歉！我撞到你了。" },
+      { en: "It's okay.", zh: "没关系。", emoji: "😊", sentenceEn: "It's okay. Don't worry.", sentenceZh: "没关系。别担心。" },
+    ],
+    [
+      { en: "polite", zh: "礼貌的", emoji: "🤝", sentenceEn: "Please be polite at school.", sentenceZh: "在学校里要有礼貌。" },
+      { en: "we", zh: "我们", emoji: "👫", sentenceEn: "We should help each other.", sentenceZh: "我们应该互相帮助。" },
+      { en: "there", zh: "那里", emoji: "👉", sentenceEn: "Please wait there.", sentenceZh: "请在那里等候。" },
+      { en: "or", zh: "或者", emoji: "🔀", sentenceEn: "You may drink water or milk.", sentenceZh: "你可以喝水或牛奶。" },
+      { en: "drink", zh: "喝", emoji: "🥤", sentenceEn: "Don't drink in the hallway.", sentenceZh: "不要在走廊里喝东西。" },
+    ],
+    [
+      { en: "toilet", zh: "厕所", emoji: "🚽", sentenceEn: "The toilet is over there.", sentenceZh: "厕所在那边。" },
+      { en: "knock", zh: "敲", emoji: "✊", sentenceEn: "Knock on the door, please.", sentenceZh: "请敲门。" },
+      { en: "off", zh: "关闭", emoji: "💡", sentenceEn: "Please turn off the tap.", sentenceZh: "请关上水龙头。" },
+      { en: "water", zh: "水", emoji: "💧", sentenceEn: "Save water, please.", sentenceZh: "请节约用水。" },
+      { en: "block", zh: "挡住", emoji: "🚧", sentenceEn: "Don't block the door.", sentenceZh: "不要挡住门。" },
+    ],
+    [
+      { en: "hold", zh: "使保持；拿着", emoji: "🫴", sentenceEn: "Hold the door, please.", sentenceZh: "请扶住门。" },
+      { en: "excuse", zh: "原谅", emoji: "🙏", sentenceEn: 'Say "excuse me" when you bump someone.', sentenceZh: "撞到别人要说“不好意思”。" },
+      { en: "voice", zh: "声音", emoji: "🔉", sentenceEn: "Please use a quiet voice.", sentenceZh: "请小声说话。" },
+      { en: "down", zh: "减弱；向下", emoji: "⬇️", sentenceEn: "Keep your voice down.", sentenceZh: "小声说话。" },
+      { en: "sorry", zh: "对不起", emoji: "😔", sentenceEn: "I'm sorry.", sentenceZh: "对不起。" },
     ],
   ];
 
@@ -930,7 +970,12 @@
 
   function buildU6WordLevelSteps(level) {
     const isU6ReviewLevel = level >= 21 && level <= 25;
-    const words = isU6ReviewLevel ? U6_WORD_LEVELS[level - 21] || [] : U7_WORD_LEVELS[level - 26] || [];
+    const isU7LateSchoolRules = level >= 35 && level <= 40;
+    const words = isU6ReviewLevel
+      ? U6_WORD_LEVELS[level - 21] || []
+      : isU7LateSchoolRules
+        ? U7_WORD_LEVELS[level - 30] || []
+        : U7_WORD_LEVELS[level - 26] || [];
     const pool = isU6ReviewLevel ? U6_WORDS : U7_WORDS;
     const groupNames = ["第一组", "第二组", "第三组"];
     return words.reduce((steps, word, idx) => {
@@ -2791,6 +2836,8 @@
         steps = buildLevel32Steps();
       } else if (lv === 31) {
         steps = buildLevel31Steps();
+      } else if (lv >= 35 && lv <= 40) {
+        steps = buildU6WordLevelSteps(lv);
       } else if (lv >= 21 && lv <= 30) {
         steps = buildU6WordLevelSteps(lv);
       } else if (lv === 7 || lv === 8) {
